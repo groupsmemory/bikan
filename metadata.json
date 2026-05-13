@@ -1,0 +1,6 @@
+{
+  "name": "BIKAN LMS Engine 2026",
+  "description": "Adaptive Learning Platform based on Multi-Party Cooperative (KMP) with IRT 3PLM Engine and Socratic AI.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["AI-powered assessment", "Adaptive learning paths"]
+}

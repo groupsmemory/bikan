@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  /* BIKAN Cognitive UI Palette 2026 */
+  --color-neutral-base: #F8FAFC;        /* 60% Neutral Background */
+  --color-muted-blue: #1E293B;         /* 30% Secondary */
+  --color-muted-green: #064E3B;        /* 30% Secondary Alternative */
+  --color-tactical-orange: #F97316;    /* 10% Call to Action */
+  --color-tactical-red: #EF4444;       /* 10% Alert/Impact */
+  
+  /* Soft UI / Neumorphism Utils */
+  --shadow-soft-in: inset 2px 2px 5px rgba(0,0,0,0.1), inset -2px -2px 5px rgba(255,255,255,0.9);
+  --shadow-soft-out: 8px 8px 16px rgba(0,0,0,0.05), -8px -8px 16px rgba(255,255,255,0.8);
+}
+
+@layer base {
+  body {
+    @apply bg-neutral-base text-muted-blue antialiased font-sans;
+  }
+}
+
+.soft-ui-card {
+  @apply bg-neutral-base rounded-2xl shadow-soft-out border border-white/50;
+}
+
+.soft-ui-pressed {
+  @apply shadow-soft-in;
+}
