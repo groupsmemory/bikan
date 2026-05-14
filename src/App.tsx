@@ -5,14 +5,16 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, BrainCircuit, Activity, Calculator, Sliders, Moon, Sun, Monitor, WifiOff, BookOpen, LogOut } from 'lucide-react';
+import { ChevronRight, BrainCircuit, Activity, Calculator, Sliders, Moon, Sun, Monitor, WifiOff, BookOpen, LogOut, Mic, MicOff } from 'lucide-react';
 import { QuadraticCanvas } from '@/src/features/canvas/QuadraticCanvas';
 import { DiagnosticSession } from '@/src/features/assessment/diagnostic-service';
 import { calculateItemInformation, ItemParameters } from '@/lib/ai/irt-engine';
 import { askSocraticTutor } from '@/app/actions/ai-tutor';
 import { useDarkMode } from '@/src/hooks/use-dark-mode';
 import { useOnlineStatus } from '@/src/hooks/use-offline';
+import { useVoiceInput } from '@/src/hooks/use-voice-input';
 import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
+import { PostLivePanel } from '@/src/features/player/PostLivePanel';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
@@ -35,19 +37,6 @@ export default function App() {
   // Authentication
   const { user, isLoading, handleLogout } = useAuth();
 
-  // Show auth screen if not logged in
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-base">
-        <div className="w-10 h-10 border-3 border-tactical-orange border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthScreen isDark={isDark} />;
-  }
-
   // Quadratic Config for Canvas
   const [config, setConfig] = useState({ a: 1, b: 0, c: 0 });
 
@@ -55,120 +44,35 @@ export default function App() {
   const session = useMemo(() => new DiagnosticSession(), []);
   const [report, setReport] = useState(session.getSessionReport());
 
-  // ─── IRT Item Bank: Soal Aljabar & Fungsi Kuadrat ───
-  // Setiap item memiliki parameter 3PLM (a=discrimination, b=difficulty, c=guessing)
-  const itemBank = useMemo(() => [
-    {
-      id: 'ALG-001',
-      question: 'Jika f(x) = x² + 2x + 1, berapakah nilai x saat f(x) = 0?',
-      options: [
-        { label: 'x = 1', isCorrect: false },
-        { label: 'x = -1', isCorrect: true },
-        { label: 'x = 0', isCorrect: false },
-        { label: 'x = 2', isCorrect: false },
-      ],
-      params: { a: 1.0, b: -1.5, c: 0.25 } as ItemParameters, // Mudah
-    },
-    {
-      id: 'ALG-002',
-      question: 'Tentukan diskriminan dari persamaan 2x² - 4x + 2 = 0.',
-      options: [
-        { label: 'D = 0', isCorrect: true },
-        { label: 'D = 8', isCorrect: false },
-        { label: 'D = -8', isCorrect: false },
-        { label: 'D = 4', isCorrect: false },
-      ],
-      params: { a: 1.2, b: -0.5, c: 0.25 } as ItemParameters, // Mudah-Sedang
-    },
-    {
-      id: 'ALG-003',
-      question: 'Fungsi f(x) = -x² + 4x - 3 memiliki titik puncak di...',
-      options: [
-        { label: '(2, 1)', isCorrect: true },
-        { label: '(4, -3)', isCorrect: false },
-        { label: '(-2, 1)', isCorrect: false },
-        { label: '(2, -1)', isCorrect: false },
-      ],
-      params: { a: 1.4, b: 0.5, c: 0.20 } as ItemParameters, // Sedang
-    },
-    {
-      id: 'ALG-004',
-      question: 'Persamaan kuadrat x² - 5x + 6 = 0 memiliki akar-akar...',
-      options: [
-        { label: 'x = 2 dan x = 3', isCorrect: true },
-        { label: 'x = -2 dan x = -3', isCorrect: false },
-        { label: 'x = 1 dan x = 6', isCorrect: false },
-        { label: 'x = -1 dan x = -6', isCorrect: false },
-      ],
-      params: { a: 1.1, b: 0.0, c: 0.25 } as ItemParameters, // Sedang
-    },
-    {
-      id: 'ALG-005',
-      question: 'Jika grafik y = ax² + bx + c melalui titik (0, 5), maka nilai c adalah...',
-      options: [
-        { label: 'c = 5', isCorrect: true },
-        { label: 'c = 0', isCorrect: false },
-        { label: 'c = -5', isCorrect: false },
-        { label: 'Tidak dapat ditentukan', isCorrect: false },
-      ],
-      params: { a: 0.9, b: -1.0, c: 0.25 } as ItemParameters, // Mudah
-    },
-    {
-      id: 'ALG-006',
-      question: 'Sumbu simetri dari f(x) = 3x² - 12x + 7 adalah...',
-      options: [
-        { label: 'x = 2', isCorrect: true },
-        { label: 'x = 4', isCorrect: false },
-        { label: 'x = -2', isCorrect: false },
-        { label: 'x = 6', isCorrect: false },
-      ],
-      params: { a: 1.3, b: 1.0, c: 0.20 } as ItemParameters, // Sedang-Sulit
-    },
-    {
-      id: 'ALG-007',
-      question: 'Persamaan kuadrat yang akar-akarnya 3 dan -2 adalah...',
-      options: [
-        { label: 'x² - x - 6 = 0', isCorrect: true },
-        { label: 'x² + x - 6 = 0', isCorrect: false },
-        { label: 'x² - x + 6 = 0', isCorrect: false },
-        { label: 'x² + x + 6 = 0', isCorrect: false },
-      ],
-      params: { a: 1.5, b: 1.5, c: 0.20 } as ItemParameters, // Sulit
-    },
-    {
-      id: 'ALG-008',
-      question: 'Nilai minimum dari f(x) = 2x² - 8x + 10 adalah...',
-      options: [
-        { label: '2', isCorrect: true },
-        { label: '10', isCorrect: false },
-        { label: '-2', isCorrect: false },
-        { label: '0', isCorrect: false },
-      ],
-      params: { a: 1.6, b: 2.0, c: 0.20 } as ItemParameters, // Sulit
-    },
-    {
-      id: 'ALG-009',
-      question: 'Agar persamaan x² + kx + 9 = 0 memiliki akar kembar, nilai k adalah...',
-      options: [
-        { label: 'k = 6 atau k = -6', isCorrect: true },
-        { label: 'k = 3', isCorrect: false },
-        { label: 'k = 9', isCorrect: false },
-        { label: 'k = 0', isCorrect: false },
-      ],
-      params: { a: 1.8, b: 2.5, c: 0.15 } as ItemParameters, // Sangat Sulit
-    },
-    {
-      id: 'ALG-010',
-      question: 'Jika x₁ dan x₂ adalah akar dari 2x² - 7x + 3 = 0, maka x₁² + x₂² = ...',
-      options: [
-        { label: '37/4', isCorrect: true },
-        { label: '49/4', isCorrect: false },
-        { label: '7/2', isCorrect: false },
-        { label: '3/2', isCorrect: false },
-      ],
-      params: { a: 2.0, b: 3.0, c: 0.15 } as ItemParameters, // Sangat Sulit
-    },
-  ], []);
+  // ─── IRT Item Bank: Fetched from NeonDB (ims_core.item_bank) ───
+  interface LocalItem {
+    id: string;
+    question: string;
+    options: { label: string; isCorrect: boolean }[];
+    params: ItemParameters;
+  }
+  const [itemBank, setItemBank] = useState<LocalItem[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(true);
+
+  // Fetch items from database on mount
+  useEffect(() => {
+    async function loadItems() {
+      const { getItemsByModule } = await import('@/app/actions/assessment');
+      const items = await getItemsByModule('mod-aljabar-kuadrat');
+      const mapped: LocalItem[] = items.map(item => ({
+        id: item.id,
+        question: item.question,
+        options: item.options.map(opt => ({
+          label: opt.label,
+          isCorrect: opt.key === item.correctOption,
+        })),
+        params: item.params as ItemParameters,
+      }));
+      setItemBank(mapped);
+      setItemsLoading(false);
+    }
+    loadItems();
+  }, []);
 
   // Track which items have been administered
   const [administeredIds, setAdministeredIds] = useState<Set<string>>(new Set());
@@ -194,11 +98,12 @@ export default function App() {
     return bestIndex >= 0 ? bestIndex : -1; // -1 = semua soal habis
   }, [session, itemBank, administeredIds]);
 
-  // Initialize first item
+  // Initialize first item when items are loaded
   useEffect(() => {
+    if (itemBank.length === 0) return;
     const idx = selectNextItem();
     if (idx >= 0) setCurrentItemIndex(idx);
-  }, []);
+  }, [itemBank.length]);
 
   const handleAssessment = (isCorrect: boolean) => {
     const item = itemBank[currentItemIndex];
@@ -259,6 +164,29 @@ export default function App() {
   // Simulated Socratic Interaction
   const [chatInput, setChatInput] = useState('');
   const [tokenInfo, setTokenInfo] = useState<{ total: number; cached: number; latency: number } | null>(null);
+
+  // Voice Input (PRD US-ALG-004)
+  const { isListening, transcript, isSupported: voiceSupported, error: voiceError, startListening, stopListening } = useVoiceInput('id-ID');
+
+  // Auto-fill chat input when voice transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setChatInput(transcript);
+    }
+  }, [transcript]);
+
+  // ─── Auth Guard (setelah semua hooks dipanggil) ───
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-base">
+        <div className="w-10 h-10 border-3 border-tactical-orange border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen isDark={isDark} />;
+  }
 
   const handleAskAI = async () => {
     const message = chatInput.trim();
@@ -365,7 +293,7 @@ export default function App() {
 
           {/* DYNAMIC TABS FOR CANVAS / ASSESSMENT */}
           <div className="soft-ui-card p-2 flex gap-1 bg-white/50 border-white/50">
-            {['video', 'canvas', 'assessment'].map((tab) => (
+            {['video', 'canvas', 'assessment', 'post-live'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -492,6 +420,17 @@ export default function App() {
               )}
               {activeTab === 'assessment' && (
                 <div className="w-full space-y-6">
+                  {itemsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div className="w-8 h-8 border-3 border-tactical-orange border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs text-muted-blue/40">Memuat bank soal dari database...</p>
+                    </div>
+                  ) : itemBank.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-sm text-muted-blue/50">Tidak ada soal tersedia untuk modul ini.</p>
+                    </div>
+                  ) : (
+                  <>
                   <div className="text-xs font-bold text-tactical-red bg-tactical-red/5 py-2 rounded-full inline-block px-4">
                     IRT Theta: {report.theta.toFixed(2)} | Items: {report.count}/{itemBank.length}
                   </div>
@@ -552,7 +491,12 @@ export default function App() {
                       </p>
                     </div>
                   )}
+                  </>
+                  )}
                 </div>
+              )}
+              {activeTab === 'post-live' && (
+                <PostLivePanel userId={user.id} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -594,17 +538,40 @@ export default function App() {
                 disabled={isAiLoading}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Tanyakan sesuatu..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-tactical-orange transition-all placeholder:text-white/20"
+                placeholder={isListening ? '🎙️ Mendengarkan...' : 'Tanyakan sesuatu...'}
+                className={`w-full bg-white/5 border rounded-xl px-4 py-3 pr-20 text-sm focus:outline-none focus:ring-2 focus:ring-tactical-orange transition-all placeholder:text-white/20 ${
+                  isListening ? 'border-tactical-orange/50 ring-1 ring-tactical-orange/30' : 'border-white/10'
+                }`}
                 onKeyDown={(e) => e.key === 'Enter' && handleAskAI()}
               />
-              <button 
-                onClick={handleAskAI}
-                disabled={isAiLoading || !chatInput.trim()}
-                className="absolute right-2 top-2 p-1.5 bg-tactical-orange rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-              >
-                <ChevronRight className="w-5 h-5 text-white" />
-              </button>
+              <div className="absolute right-2 top-2 flex gap-1">
+                {/* Voice Input Button */}
+                {voiceSupported && (
+                  <button
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={isAiLoading}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      isListening 
+                        ? 'bg-tactical-red animate-pulse shadow-lg' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                    title={isListening ? 'Stop' : 'Input suara'}
+                  >
+                    {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white/60" />}
+                  </button>
+                )}
+                {/* Send Button */}
+                <button 
+                  onClick={handleAskAI}
+                  disabled={isAiLoading || !chatInput.trim()}
+                  className="p-1.5 bg-tactical-orange rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <ChevronRight className="w-4 h-4 text-white" />
+                </button>
+              </div>
+              {voiceError && (
+                <p className="text-[9px] text-tactical-red/80 mt-1">{voiceError}</p>
+              )}
             </div>
           </div>
 

@@ -23,18 +23,24 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 export async function registerUser(name: string, email: string, password: string) {
+  console.log('[Auth] Register attempt:', { name, email });
+  
   try {
     // Check if email already exists
+    console.log('[Auth] Checking existing user...');
     const existing = await db.select({ id: users.id })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
+
+    console.log('[Auth] Existing check result:', existing);
 
     if (existing.length > 0) {
       return { success: false, error: 'Email sudah terdaftar' };
     }
 
     const passwordHash = await hashPassword(password);
+    console.log('[Auth] Inserting new user...');
 
     const [newUser] = await db.insert(users).values({
       name,
@@ -48,10 +54,12 @@ export async function registerUser(name: string, email: string, password: string
       role: users.role,
     });
 
+    console.log('[Auth] User created:', newUser);
     return { success: true, user: newUser };
   } catch (error: any) {
-    console.error('[Auth] Register error:', error);
-    return { success: false, error: 'Terjadi kesalahan saat mendaftar' };
+    console.error('[Auth] Register error:', error?.message || error);
+    console.error('[Auth] Full error:', JSON.stringify(error, null, 2));
+    return { success: false, error: `DB Error: ${error?.message || 'Unknown'}` };
   }
 }
 

@@ -17,6 +17,7 @@ import {
   uniqueIndex,
   index,
   check,
+  numeric,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -107,5 +108,25 @@ export const aiInteractionLogs = imsAnalytics.table('ai_interaction_logs', {
   cachedTokens: integer('cached_tokens').notNull().default(0),
   latencyMs: integer('latency_ms').notNull(),
   workflowTag: varchar('workflow_tag', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 9. IRT Item Bank (Adaptive Assessment) ───
+export const itemBank = imsCore.table('item_bank', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  moduleId: varchar('module_id', { length: 100 }).notNull(),
+  question: text('question').notNull(),
+  optionA: text('option_a').notNull(),
+  optionB: text('option_b').notNull(),
+  optionC: text('option_c').notNull(),
+  optionD: text('option_d').notNull(),
+  correctOption: varchar('correct_option', { length: 1 }).notNull(), // 'a','b','c','d'
+  // IRT 3PLM Parameters
+  discrimination: numeric('discrimination', { precision: 4, scale: 2 }).notNull(), // a
+  difficulty: numeric('difficulty', { precision: 4, scale: 2 }).notNull(),         // b
+  guessing: numeric('guessing', { precision: 4, scale: 2 }).notNull(),             // c
+  // Metadata
+  bloomLevel: varchar('bloom_level', { length: 20 }),
+  active: integer('active').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
