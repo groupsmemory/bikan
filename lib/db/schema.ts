@@ -130,3 +130,14 @@ export const itemBank = imsCore.table('item_bank', {
   active: integer('active').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── 10. Learning Streaks (Keterikatan Belajar Harian) ───
+// PRD Could Have: Pelacakan streak tanpa papan peringkat sosial
+export const learningStreaks = imsCore.table('learning_streaks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  streakDate: timestamp('streak_date', { withTimezone: true, mode: 'date' }).notNull(),
+  minutesStudied: integer('minutes_studied').notNull().default(0),
+  activitiesCompleted: integer('activities_completed').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

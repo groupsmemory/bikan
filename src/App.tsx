@@ -15,6 +15,7 @@ import { useOnlineStatus } from '@/src/hooks/use-offline';
 import { useVoiceInput } from '@/src/hooks/use-voice-input';
 import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
 import { PostLivePanel } from '@/src/features/player/PostLivePanel';
+import { StreakWidget } from '@/src/features/streaks/StreakWidget';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
@@ -108,6 +109,11 @@ export default function App() {
   const handleAssessment = (isCorrect: boolean) => {
     const item = itemBank[currentItemIndex];
     
+    // Record activity for streak tracking (each answer = ~2 min equivalent)
+    import('@/app/actions/streaks').then(({ recordActivity }) => {
+      recordActivity(user!.id, 2);
+    });
+
     // Trigger estimateTheta via DiagnosticSession with proper IRT parameters
     const newTheta = session.addResponse(
       isCorrect,
@@ -574,6 +580,9 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {/* LEARNING STREAK TRACKER */}
+          <StreakWidget userId={user.id} />
 
           {/* MASTERY PROGRESS GATEKEEPER */}
           <div className={`soft-ui-card p-6 space-y-5 border-t-4 transition-colors duration-500 ${report.status === 'QUALIFIED' ? 'border-muted-green' : 'border-tactical-orange'}`}>
