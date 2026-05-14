@@ -46,7 +46,7 @@ export async function registerUser(name: string, email: string, password: string
       name,
       email,
       passwordHash,
-    }).returning({
+    } as any).returning({
       id: users.id,
       name: users.name,
       email: users.email,
