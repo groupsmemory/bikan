@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  /* BIKAN Cognitive UI Palette 2026 */
+  /* BIKAN Cognitive UI Palette 2026 — Light Mode (Default) */
   --color-neutral-base: #F8FAFC;        /* 60% Neutral Background */
-  --color-muted-blue: #1E293B;         /* 30% Secondary */
+  --color-muted-blue: #1E293B;         /* 30% Secondary / Text */
   --color-muted-green: #064E3B;        /* 30% Secondary Alternative */
   --color-tactical-orange: #F97316;    /* 10% Call to Action */
   --color-tactical-red: #EF4444;       /* 10% Alert/Impact */
@@ -11,18 +11,129 @@
   /* Soft UI / Neumorphism Utils */
   --shadow-soft-in: inset 2px 2px 5px rgba(0,0,0,0.1), inset -2px -2px 5px rgba(255,255,255,0.9);
   --shadow-soft-out: 8px 8px 16px rgba(0,0,0,0.05), -8px -8px 16px rgba(255,255,255,0.8);
+
+  /* Dark Mode Palette — OLED-optimized, WCAG 2.1 AA compliant (≥4.5:1 contrast) */
+  --color-dark-base: #0F172A;           /* Deep navy-black (OLED true dark) */
+  --color-dark-surface: #1E293B;        /* Card/surface elevation */
+  --color-dark-surface-alt: #334155;    /* Elevated surface (modals, dropdowns) */
+  --color-dark-text: #F1F5F9;           /* Primary text (contrast 15.4:1 on dark-base) */
+  --color-dark-text-muted: #94A3B8;     /* Secondary text (contrast 5.6:1) */
+  --color-dark-border: #334155;         /* Subtle borders */
 }
 
 @layer base {
   body {
     @apply bg-neutral-base text-muted-blue antialiased font-sans;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* ─── Dark Mode Overrides ─── */
+  .dark body,
+  .dark {
+    background-color: var(--color-dark-base);
+    color: var(--color-dark-text);
   }
 }
 
+/* ─── Light Mode Components ─── */
 .soft-ui-card {
   @apply bg-neutral-base rounded-2xl shadow-soft-out border border-white/50;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .soft-ui-pressed {
   @apply shadow-soft-in;
+}
+
+/* ─── Dark Mode Component Overrides ─── */
+.dark .soft-ui-card {
+  background-color: var(--color-dark-surface);
+  border-color: var(--color-dark-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.dark .soft-ui-pressed {
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.02);
+}
+
+/* Dark mode text utilities */
+.dark .text-muted-blue {
+  color: var(--color-dark-text);
+}
+
+.dark .text-muted-blue\/40,
+.dark .text-muted-blue\/50,
+.dark .text-muted-blue\/60 {
+  color: var(--color-dark-text-muted);
+}
+
+/* Dark mode backgrounds */
+.dark .bg-neutral-base {
+  background-color: var(--color-dark-base);
+}
+
+.dark .bg-white {
+  background-color: var(--color-dark-surface);
+}
+
+.dark .bg-white\/50 {
+  background-color: rgba(30, 41, 59, 0.5);
+}
+
+/* Dark mode header */
+.dark header {
+  background-color: rgba(15, 23, 42, 0.8);
+  border-color: var(--color-dark-border);
+}
+
+/* Dark mode canvas container */
+.dark canvas {
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 1px var(--color-dark-border);
+}
+
+/* Dark mode input fields */
+.dark input[type="range"] {
+  background-color: rgba(148, 163, 184, 0.1);
+}
+
+.dark input:not([type="range"]) {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-dark-border);
+  color: var(--color-dark-text);
+}
+
+/* Dark mode KaTeX formula rendering */
+.dark .katex {
+  color: var(--color-dark-text);
+}
+
+/* Dark mode error pendaran (darker red glow for OLED) */
+.dark .error-pendaran {
+  animation: error-glow-dark 1.2s ease-out, shake 0.4s ease-in-out;
+}
+
+@keyframes error-glow-dark {
+  0% { background-color: transparent; box-shadow: none; }
+  15% { background-color: rgba(127, 29, 29, 0.3); box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.25); }
+  40% { background-color: rgba(127, 29, 29, 0.4); box-shadow: 0 0 30px 8px rgba(239, 68, 68, 0.30); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
+/* ─── Pendaran Merah: Immediate Feedback Loop (PRD US-ALG-003) ─── */
+@keyframes error-glow {
+  0% { background-color: transparent; box-shadow: none; }
+  15% { background-color: #FFECEC; box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.15); }
+  40% { background-color: #FFECEC; box-shadow: 0 0 30px 8px rgba(239, 68, 68, 0.20); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 50%, 90% { transform: translateX(-3px); }
+  30%, 70% { transform: translateX(3px); }
+}
+
+.error-pendaran {
+  animation: error-glow 1.2s ease-out, shake 0.4s ease-in-out;
 }

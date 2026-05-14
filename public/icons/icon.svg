@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background: Gradient muted-blue to black (sesuai header logo BIKAN) -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E293B"/>
+      <stop offset="100%" style="stop-color:#0F172A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F97316"/>
+      <stop offset="100%" style="stop-color:#EA580C"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square background (maskable safe zone friendly) -->
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
+  
+  <!-- Letter "B" - Bold, centered in maskable safe zone (80% = 410px area) -->
+  <text 
+    x="256" 
+    y="340" 
+    font-family="system-ui, -apple-system, sans-serif" 
+    font-size="280" 
+    font-weight="900" 
+    fill="white" 
+    text-anchor="middle"
+    letter-spacing="-10"
+  >B</text>
+  
+  <!-- Parabola accent (representing math/quadratic function) -->
+  <path 
+    d="M 140 420 Q 256 350 372 420" 
+    stroke="url(#accent)" 
+    stroke-width="8" 
+    fill="none" 
+    stroke-linecap="round"
+  />
+  
+  <!-- Small dot at vertex of parabola -->
+  <circle cx="256" cy="385" r="6" fill="#F97316"/>
+</svg>
