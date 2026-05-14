@@ -1,0 +1,111 @@
+/**
+ * BIKAN Database Schema (Drizzle ORM)
+ * ────────────────────────────────────
+ * TypeScript representation of lib/db/schema.sql
+ * Used by Drizzle for type-safe queries and migrations
+ */
+
+import {
+  pgTable,
+  pgSchema,
+  uuid,
+  varchar,
+  text,
+  integer,
+  timestamp,
+  pgEnum,
+  uniqueIndex,
+  index,
+  check,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+// ─── Schemas ───
+export const imsCore = pgSchema('ims_core');
+export const imsAnalytics = pgSchema('ims_analytics');
+
+// ─── Enums ───
+export const userRoleEnum = imsCore.enum('user_role', ['admin', 'instructor', 'student']);
+export const completionStatusEnum = imsCore.enum('completion_status', ['active', 'completed', 'dropped']);
+
+// ─── 1. Users ───
+export const users = imsCore.table('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: userRoleEnum('role').notNull().default('student'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 2. Courses ───
+export const courses = imsCore.table('courses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  instructorId: uuid('instructor_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 3. Enrollments ───
+export const enrollments = imsCore.table('enrollments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: completionStatusEnum('status').notNull().default('active'),
+  enrolledAt: timestamp('enrolled_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 4. Resources ───
+export const resources = imsCore.table('resources', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  resourceType: varchar('resource_type', { length: 50 }).notNull(),
+  url: text('url').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 5. Assessments ───
+export const assessments = imsCore.table('assessments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  maxScore: integer('max_score').notNull().default(100),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 6. Grades ───
+export const grades = imsCore.table('grades', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  assessmentId: uuid('assessment_id').notNull().references(() => assessments.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  score: integer('score').notNull(),
+  feedback: text('feedback'),
+  gradedAt: timestamp('graded_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 7. Learning Progress ───
+export const learningProgress = imsCore.table('learning_progress', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  lessonId: uuid('lesson_id').notNull(),
+  completionPercentage: integer('completion_percentage').notNull().default(0),
+  lastAccessed: timestamp('last_accessed', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 8. AI Interaction Logs (Analytics) ───
+export const aiInteractionLogs = imsAnalytics.table('ai_interaction_logs', {
+  id: uuid('id').defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  promptTokens: integer('prompt_tokens').notNull(),
+  completionTokens: integer('completion_tokens').notNull(),
+  totalTokens: integer('total_tokens').notNull(),
+  cachedTokens: integer('cached_tokens').notNull().default(0),
+  latencyMs: integer('latency_ms').notNull(),
+  workflowTag: varchar('workflow_tag', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

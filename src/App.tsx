@@ -5,15 +5,17 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, BrainCircuit, Activity, Calculator, Sliders, Moon, Sun, Monitor, WifiOff, BookOpen } from 'lucide-react';
+import { ChevronRight, BrainCircuit, Activity, Calculator, Sliders, Moon, Sun, Monitor, WifiOff, BookOpen, LogOut } from 'lucide-react';
 import { QuadraticCanvas } from '@/src/features/canvas/QuadraticCanvas';
 import { DiagnosticSession } from '@/src/features/assessment/diagnostic-service';
 import { calculateItemInformation, ItemParameters } from '@/lib/ai/irt-engine';
-import { askSocraticAssistant } from '@/actions/ai-assistant';
+import { askSocraticTutor } from '@/app/actions/ai-tutor';
 import { useDarkMode } from '@/src/hooks/use-dark-mode';
 import { useOnlineStatus } from '@/src/hooks/use-offline';
 import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
 import { MODULE_1 } from '@/src/data/lessons';
+import { useAuth } from '@/src/features/auth/AuthContext';
+import { AuthScreen } from '@/src/features/auth/AuthScreen';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('canvas');
@@ -29,6 +31,22 @@ export default function App() {
 
   // Offline-First PWA: track connection status
   const isOnline = useOnlineStatus();
+
+  // Authentication
+  const { user, isLoading, handleLogout } = useAuth();
+
+  // Show auth screen if not logged in
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-base">
+        <div className="w-10 h-10 border-3 border-tactical-orange border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen isDark={isDark} />;
+  }
 
   // Quadratic Config for Canvas
   const [config, setConfig] = useState({ a: 1, b: 0, c: 0 });
@@ -250,8 +268,8 @@ export default function App() {
     setChatInput('');
 
     try {
-      const result = await askSocraticAssistant(
-        'student-session-001',
+      const result = await askSocraticTutor(
+        user.id,
         message,
         'Materi: Aljabar dasar, persamaan kuadrat, fungsi kuadrat f(x) = ax² + bx + c, diskriminan, titik puncak parabola.'
       );
@@ -298,7 +316,7 @@ export default function App() {
         <div className="flex items-center gap-6">
           <div className="hidden md:flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
             <Activity className="w-3 h-3 text-tactical-orange" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-blue/60">Estimated Theta: +1.2 (Active)</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-blue/60">θ: {report.theta.toFixed(2)} • {user.name}</span>
           </div>
 
           {/* Dark Mode Toggle */}
@@ -311,12 +329,16 @@ export default function App() {
             {mode === 'dark' && <Moon className="w-5 h-5 text-indigo-400" />}
             {mode === 'light' && <Sun className="w-5 h-5 text-tactical-orange" />}
             {mode === 'auto' && <Monitor className="w-5 h-5 text-muted-blue/60" />}
-            {/* Indicator dot */}
             <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${isDark ? 'bg-indigo-400' : 'bg-tactical-orange'}`} />
           </button>
 
-          <button className="soft-ui-card p-2 rounded-xl text-tactical-orange hover:scale-105 transition-transform">
-            <BrainCircuit className="w-5 h-5" />
+          {/* Logout */}
+          <button 
+            onClick={handleLogout}
+            className="soft-ui-card p-2 rounded-xl text-muted-blue/40 hover:text-tactical-red hover:scale-105 transition-all"
+            title="Keluar"
+          >
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </header>
