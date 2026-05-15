@@ -108,7 +108,7 @@ export async function processPostLiveSession(
       workflowTag: 'post_live_automation',
     };
 
-    db.insert(aiInteractionLogs).values(tokenData).catch(err => {
+    db.insert(aiInteractionLogs).values(tokenData as any).catch(err => {
       console.error('[Post-Live] Log insert failed:', err);
     });
 
@@ -140,7 +140,7 @@ export async function processPostLiveSession(
       cachedTokens: 0,
       latencyMs,
       workflowTag: 'post_live_automation_error',
-    }).catch(() => {});
+    } as any).catch(() => {});
 
     return {
       success: false,

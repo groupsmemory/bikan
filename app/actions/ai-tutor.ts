@@ -63,7 +63,7 @@ export async function askSocraticTutor(
     };
 
     // Non-blocking DB insert (don't await to keep response fast)
-    db.insert(aiInteractionLogs).values(tokenData).catch(err => {
+    db.insert(aiInteractionLogs).values(tokenData as any).catch(err => {
       console.error('[AI Log] Failed to insert:', err);
     });
 
