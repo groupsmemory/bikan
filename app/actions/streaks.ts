@@ -51,7 +51,7 @@ export async function recordActivity(userId: string, minutes: number) {
         .set({
           minutesStudied: current.minutesStudied + minutes,
           activitiesCompleted: current.activitiesCompleted + 1,
-        })
+        } as any)
         .where(eq(learningStreaks.id, current.id));
     } else {
       // Create new record for today
@@ -60,7 +60,7 @@ export async function recordActivity(userId: string, minutes: number) {
         streakDate: today,
         minutesStudied: minutes,
         activitiesCompleted: 1,
-      });
+      } as any);
     }
 
     return { success: true };
