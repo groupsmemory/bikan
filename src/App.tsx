@@ -1,196 +1,55 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * BIKAN Main App (Refactored)
+ * ────────────────────────────
+ * Orchestrator component — delegates to modular feature components.
+ * ~150 lines (down from 500+)
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calculator, Sliders, WifiOff, BookOpen } from 'lucide-react';
-import { QuadraticCanvas } from '@/src/features/canvas/QuadraticCanvas';
-import { DiagnosticSession } from '@/src/features/assessment/diagnostic-service';
-import { calculateItemInformation, ItemParameters } from '@/lib/ai/irt-engine';
+import { WifiOff } from 'lucide-react';
 import { useDarkMode } from '@/src/hooks/use-dark-mode';
 import { useOnlineStatus } from '@/src/hooks/use-offline';
-import { useVoiceInput } from '@/src/hooks/use-voice-input';
-import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
-import { PostLivePanel } from '@/src/features/player/PostLivePanel';
-import { StreakWidget } from '@/src/features/streaks/StreakWidget';
-import { PricingPanel } from '@/src/features/payment/PricingPanel';
-import { CertificateGenerator } from '@/src/features/certificate/CertificateGenerator';
-import { ModuleSelector } from '@/src/features/curriculum/ModuleSelector';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
 import { AppHeader } from '@/src/features/layout/AppHeader';
 import { SocraticPanel } from '@/src/features/chat/SocraticPanel';
 import { OnboardingModal, shouldShowOnboarding } from '@/src/features/onboarding/OnboardingModal';
+import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
+import { PostLivePanel } from '@/src/features/player/PostLivePanel';
+import { StreakWidget } from '@/src/features/streaks/StreakWidget';
+import { PricingPanel } from '@/src/features/payment/PricingPanel';
+import { CertificateGenerator } from '@/src/features/certificate/CertificateGenerator';
+import { ModuleSelector } from '@/src/features/curriculum/ModuleSelector';
+import { LearnTab } from '@/src/features/learn/LearnTab';
+import { CanvasTab } from '@/src/features/canvas/CanvasTab';
+import { AssessmentTab } from '@/src/features/assessment/AssessmentTab';
 
 export default function App() {
+  // ─── State ───
   const [activeTab, setActiveTab] = useState('canvas');
-
-  // Active lesson for video player
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
-  const activeLesson = MODULE_1.lessons[activeLessonIndex];
-
-  // Active curriculum module
   const [activeModuleSlug, setActiveModuleSlug] = useState('mod-aljabar-kuadrat');
-  const [completedModules, setCompletedModules] = useState<string[]>([]);
+  const [completedModules] = useState<string[]>([]);
+  const [config, setConfig] = useState({ a: 1, b: 0, c: 0 });
+  const [report, setReport] = useState({ theta: 0, mastery: 0, count: 0, status: 'IN_PROGRESS' });
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Dark Mode Adaptif (PRD US-ALG-001: lux < 50 → auto dark)
+  // ─── Hooks ───
   const { mode, isDark, luxLevel, toggle } = useDarkMode();
-
-  // Offline-First PWA: track connection status
   const isOnline = useOnlineStatus();
-
-  // Authentication
   const { user, isLoading, handleLogout } = useAuth();
 
-  // Quadratic Config for Canvas
-  const [config, setConfig] = useState({ a: 1, b: 0, c: 0 });
+  const activeLesson = MODULE_1.lessons[activeLessonIndex];
 
-  // Diagnostic Session
-  const session = useMemo(() => new DiagnosticSession(), []);
-  const [report, setReport] = useState(session.getSessionReport());
-
-  // ─── IRT Item Bank: Fetched from NeonDB (ims_core.item_bank) ───
-  interface LocalItem {
-    id: string;
-    question: string;
-    options: { label: string; isCorrect: boolean }[];
-    params: ItemParameters;
-  }
-  const [itemBank, setItemBank] = useState<LocalItem[]>([]);
-  const [itemsLoading, setItemsLoading] = useState(true);
-
-  // Fetch items from database on mount
-  useEffect(() => {
-    async function loadItems() {
-      const { getItemsByModule } = await import('@/app/actions/assessment');
-      const items = await getItemsByModule(activeModuleSlug);
-      const mapped: LocalItem[] = items.map(item => ({
-        id: item.id,
-        question: item.question,
-        options: item.options.map(opt => ({
-          label: opt.label,
-          isCorrect: opt.key === item.correctOption,
-        })),
-        params: item.params as ItemParameters,
-      }));
-      setItemBank(mapped);
-      setItemsLoading(false);
-    }
-    loadItems();
-  }, [activeModuleSlug]);
-
-  // Track which items have been administered
-  const [administeredIds, setAdministeredIds] = useState<Set<string>>(new Set());
-  const [currentItemIndex, setCurrentItemIndex] = useState(0);
-  const [lastFeedback, setLastFeedback] = useState<{ correct: boolean; theta: number } | null>(null);
-  const [showErrorGlow, setShowErrorGlow] = useState(false);
-
-  // Adaptive Item Selection: pilih soal dengan informasi maksimum pada theta saat ini
-  const selectNextItem = useCallback(() => {
-    const theta = session.getTheta();
-    let bestIndex = -1;
-    let bestInfo = -Infinity;
-
-    for (let i = 0; i < itemBank.length; i++) {
-      if (administeredIds.has(itemBank[i].id)) continue;
-      const info = calculateItemInformation(theta, itemBank[i].params);
-      if (info > bestInfo) {
-        bestInfo = info;
-        bestIndex = i;
-      }
-    }
-
-    return bestIndex >= 0 ? bestIndex : -1; // -1 = semua soal habis
-  }, [session, itemBank, administeredIds]);
-
-  // Initialize first item when items are loaded
-  useEffect(() => {
-    if (itemBank.length === 0) return;
-    const idx = selectNextItem();
-    if (idx >= 0) setCurrentItemIndex(idx);
-  }, [itemBank.length]);
-
-  const handleAssessment = (isCorrect: boolean) => {
-    const item = itemBank[currentItemIndex];
-    
-    // Record activity for streak tracking (each answer = ~2 min equivalent)
-    import('@/app/actions/streaks').then(({ recordActivity }) => {
-      recordActivity(user!.id, 2);
-    });
-
-    // Trigger estimateTheta via DiagnosticSession with proper IRT parameters
-    const newTheta = session.addResponse(
-      isCorrect,
-      item.params.b,  // difficulty
-      item.params.a,  // discrimination
-      item.params.c   // guessing
-    );
-
-    // Mark item as administered
-    const newAdministered = new Set(administeredIds);
-    newAdministered.add(item.id);
-    setAdministeredIds(newAdministered);
-
-    // Update report and feedback
-    setReport(session.getSessionReport());
-    setLastFeedback({ correct: isCorrect, theta: newTheta });
-
-    // ─── Pendaran Merah + Getaran Haptik saat jawaban SALAH ───
-    if (!isCorrect) {
-      // Activate error glow CSS animation
-      setShowErrorGlow(true);
-
-      // Trigger haptic vibration on mobile devices (Vibration API)
-      if (navigator.vibrate) {
-        navigator.vibrate([80, 50, 80]); // Short double-pulse pattern
-      }
-
-      // Reset glow after animation completes (1.2s matches CSS keyframe duration)
-      setTimeout(() => setShowErrorGlow(false), 1200);
-    }
-
-    // Select next item adaptively after short delay (for feedback display)
-    setTimeout(() => {
-      const theta = session.getTheta();
-      let bestIndex = -1;
-      let bestInfo = -Infinity;
-
-      for (let i = 0; i < itemBank.length; i++) {
-        if (newAdministered.has(itemBank[i].id)) continue;
-        const info = calculateItemInformation(theta, itemBank[i].params);
-        if (info > bestInfo) {
-          bestInfo = info;
-          bestIndex = i;
-        }
-      }
-
-      if (bestIndex >= 0) {
-        setCurrentItemIndex(bestIndex);
-      }
-      setLastFeedback(null);
-    }, 1200);
-  };
-
-  // Socratic chat state (hooks kept for consistent order, logic moved to SocraticPanel)
-  const [, ] = useState('');
-  const [, ] = useState<{ total: number; cached: number; latency: number } | null>(null);
-
-  // Voice Input hook (kept for consistent hooks order)
-  useVoiceInput('id-ID');
-
-  // eslint-disable-next-line
-  useEffect(() => {}, []);
-
-  // Onboarding state
-  const [showOnboarding, setShowOnboarding] = useState(false);
   useEffect(() => {
     if (shouldShowOnboarding()) setShowOnboarding(true);
   }, []);
 
-  // ─── Auth Guard (setelah semua hooks dipanggil) ───
+  // ─── Auth Guard ───
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-base">
@@ -199,404 +58,96 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <AuthScreen isDark={isDark} />;
-  }
+  if (!user) return <AuthScreen isDark={isDark} />;
 
+  // ─── Render ───
   return (
     <div className={`min-h-screen font-sans antialiased selection:bg-tactical-orange/20 transition-colors duration-300 ${isDark ? 'bg-[#0F172A] text-[#F1F5F9]' : 'bg-neutral-base text-muted-blue'}`}>
-      {/* Onboarding Modal */}
-      {showOnboarding && (
-        <OnboardingModal userName={user.name} onComplete={() => setShowOnboarding(false)} />
-      )}
+      {showOnboarding && <OnboardingModal userName={user.name} onComplete={() => setShowOnboarding(false)} />}
 
-      {/* Offline Banner */}
       <AnimatePresence>
         {!isOnline && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="bg-tactical-orange text-white text-center py-2 px-4 flex items-center justify-center gap-2 text-xs font-bold overflow-hidden"
-          >
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            className="bg-tactical-orange text-white text-center py-2 px-4 flex items-center justify-center gap-2 text-xs font-bold overflow-hidden">
             <WifiOff className="w-3.5 h-3.5" />
-            <span>Mode Offline — Data progres tersimpan lokal dan akan disinkronkan otomatis saat koneksi pulih</span>
+            <span>Mode Offline — Data tersimpan lokal</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 1. TOP PERSISTENT PLAYER BAR */}
-      <AppHeader
-        userName={user.name}
-        theta={report.theta}
-        mode={mode}
-        isDark={isDark}
-        luxLevel={luxLevel}
-        onToggleTheme={toggle}
-        onLogout={handleLogout}
-      />
+      <AppHeader userName={user.name} theta={report.theta} mode={mode} isDark={isDark} luxLevel={luxLevel} onToggleTheme={toggle} onLogout={handleLogout} />
 
-      {/* 2. MAIN CONTENT GRID */}
       <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* LEFT COLUMN: PLAYER & CANVAS (THE 60% AREA) */}
-        <div className="lg:col-span-8 space-y-8">
-          
-          {/* CINEMATIC MICRO-LEARNING PLAYER */}
+        {/* LEFT COLUMN */}
+        <div className="lg:col-span-8 space-y-6">
           <CinematicPlayer
             src={activeLesson.videoUrl}
             lessonId={activeLesson.id}
             isDark={isDark}
             chapters={activeLesson.chapters}
-            onComplete={() => {
-              // Auto-advance to next lesson if available
-              if (activeLessonIndex < MODULE_1.lessons.length - 1) {
-                setActiveLessonIndex(activeLessonIndex + 1);
-              }
-            }}
+            onComplete={() => { if (activeLessonIndex < MODULE_1.lessons.length - 1) setActiveLessonIndex(activeLessonIndex + 1); }}
           />
 
-          {/* DYNAMIC TABS FOR CANVAS / ASSESSMENT */}
+          {/* Tabs */}
           <div className="soft-ui-card p-2 flex gap-1 bg-white/50 border-white/50">
             {['video', 'canvas', 'assessment', 'post-live', 'pricing'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+              <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
-                  activeTab === tab 
-                    ? 'bg-white shadow-soft-out text-tactical-orange scale-[1.02]' 
-                    : 'text-muted-blue/40 hover:text-muted-blue/60'
-                }`}
-              >
+                  activeTab === tab ? 'bg-white shadow-soft-out text-tactical-orange scale-[1.02]' : 'text-muted-blue/40 hover:text-muted-blue/60'
+                }`}>
                 {tab}
               </button>
             ))}
           </div>
 
-          {/* CONTENT RENDERING */}
+          {/* Tab Content */}
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 0.3 }}
-              className="soft-ui-card p-10 min-h-[300px] flex flex-col items-center justify-center text-center space-y-4"
-            >
-              {activeTab === 'video' && (
-                <div className="w-full space-y-5 text-left">
-                  {/* Current Lesson Info */}
-                  <div>
-                    <h2 className="text-xl font-bold">{activeLesson.title}</h2>
-                    <p className="text-sm text-muted-blue/60 leading-relaxed mt-1">{activeLesson.description}</p>
-                  </div>
-
-                  {/* Lesson Metadata */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-xl bg-tactical-orange/5 border border-tactical-orange/10">
-                      <p className="text-[9px] font-bold uppercase text-muted-blue/40">Durasi</p>
-                      <p className="text-sm font-bold text-tactical-orange">{activeLesson.duration}</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted-green/5 border border-muted-green/10">
-                      <p className="text-[9px] font-bold uppercase text-muted-blue/40">Level</p>
-                      <p className="text-sm font-bold text-muted-green">{activeLesson.bloomLevel}</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted-blue/5 border border-muted-blue/10">
-                      <p className="text-[9px] font-bold uppercase text-muted-blue/40">Chapters</p>
-                      <p className="text-sm font-bold">{activeLesson.chapters.length} segmen</p>
-                    </div>
-                  </div>
-
-                  {/* Lesson Playlist */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-2">
-                      <BookOpen className="w-4 h-4 text-muted-blue/40" />
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-blue/40">Daftar Materi — {MODULE_1.title}</h4>
-                    </div>
-                    {MODULE_1.lessons.map((lesson, idx) => (
-                      <button
-                        key={lesson.id}
-                        onClick={() => setActiveLessonIndex(idx)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
-                          idx === activeLessonIndex
-                            ? 'bg-tactical-orange/10 border border-tactical-orange/20'
-                            : 'hover:bg-muted-blue/5 border border-transparent'
-                        }`}
-                      >
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${
-                          idx === activeLessonIndex
-                            ? 'bg-tactical-orange text-white'
-                            : 'bg-muted-blue/5 text-muted-blue/40'
-                        }`}>
-                          {lesson.order}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-bold truncate ${idx === activeLessonIndex ? 'text-tactical-orange' : ''}`}>
-                            {lesson.title}
-                          </p>
-                          <p className="text-[9px] text-muted-blue/40">{lesson.duration} • {lesson.bloomLevel}</p>
-                        </div>
-                        {idx === activeLessonIndex && (
-                          <span className="text-[9px] font-bold text-tactical-orange bg-tactical-orange/10 px-2 py-0.5 rounded">NOW</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {activeTab === 'canvas' && (
-                <div className="w-full flex flex-col md:flex-row gap-8 items-center">
-                  <QuadraticCanvas a={config.a} b={config.b} c={config.c} isDark={isDark} />
-                  
-                  <div className="flex-1 w-full space-y-6">
-                    <div className="soft-ui-card p-6 bg-white/50 space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sliders className="w-4 h-4 text-tactical-orange" />
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-blue/60">Coefficient Control</h4>
-                      </div>
-                      
-                      {['a', 'b', 'c'].map((param) => (
-                        <div key={param} className="space-y-1">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span className="uppercase">{param} Variable</span>
-                            <span className="text-tactical-orange">{(config as any)[param]}</span>
-                          </div>
-                          <input 
-                            type="range" 
-                            min={param === 'a' ? -10 : -20} 
-                            max={param === 'a' ? 10 : 20} 
-                            step="0.1"
-                            value={(config as any)[param]}
-                            onChange={(e) => setConfig({ ...config, [param]: parseFloat(e.target.value) || 0.1 })}
-                            className="w-full h-1.5 bg-muted-blue/5 rounded-full appearance-none cursor-pointer accent-tactical-orange"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="p-4 bg-muted-blue/5 rounded-2xl border border-muted-blue/10 flex items-center gap-3">
-                      <Calculator className="w-5 h-5 text-muted-blue/40" />
-                      <p className="text-[11px] leading-relaxed text-muted-blue/60 font-medium">
-                        Ubah nilai <span className="font-bold text-tactical-orange">a</span> untuk melihat efek kelengkungan, dan <span className="font-bold text-tactical-orange">c</span> untuk pergeseran vertikal.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {activeTab === 'assessment' && (
-                <div className="w-full space-y-6">
-                  {itemsLoading ? (
-                    <div className="flex flex-col items-center justify-center py-12 gap-3">
-                      <div className="w-8 h-8 border-3 border-tactical-orange border-t-transparent rounded-full animate-spin" />
-                      <p className="text-xs text-muted-blue/40">Memuat bank soal dari database...</p>
-                    </div>
-                  ) : itemBank.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-sm text-muted-blue/50">Tidak ada soal tersedia untuk modul ini.</p>
-                    </div>
-                  ) : (
-                  <>
-                  <div className="text-xs font-bold text-tactical-red bg-tactical-red/5 py-2 rounded-full inline-block px-4">
-                    IRT Theta: {report.theta.toFixed(2)} | Items: {report.count}/{itemBank.length}
-                  </div>
-
-                  {administeredIds.size < itemBank.length ? (
-                    <div className={`space-y-4 rounded-2xl transition-all ${showErrorGlow ? 'error-pendaran' : ''}`}>
-                      {/* Question Display */}
-                      <div className={`p-8 soft-ui-card text-xl font-mono border-l-4 relative transition-colors duration-300 ${
-                        showErrorGlow 
-                          ? 'bg-[#FFECEC] border-tactical-red' 
-                          : 'bg-white border-tactical-orange'
-                      }`}>
-                        <span className="absolute top-2 right-3 text-[9px] font-bold text-muted-blue/30 uppercase">
-                          {itemBank[currentItemIndex].id} • b={itemBank[currentItemIndex].params.b.toFixed(1)} a={itemBank[currentItemIndex].params.a.toFixed(1)}
-                        </span>
-                        {itemBank[currentItemIndex].question}
-                      </div>
-
-                      {/* Feedback Flash */}
-                      {lastFeedback && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0 }}
-                          className={`text-center py-2 rounded-xl text-sm font-bold ${
-                            lastFeedback.correct
-                              ? 'bg-muted-green/10 text-muted-green'
-                              : 'bg-tactical-red/10 text-tactical-red'
-                          }`}
-                        >
-                          {lastFeedback.correct ? '✓ Benar' : '✗ Salah'} — θ diperbarui: {lastFeedback.theta.toFixed(3)}
-                        </motion.div>
-                      )}
-
-                      {/* Answer Options */}
-                      <div className="grid grid-cols-2 gap-4">
-                        {itemBank[currentItemIndex].options.map((opt) => (
-                          <button
-                            key={opt.label}
-                            onClick={() => handleAssessment(opt.isCorrect)}
-                            disabled={lastFeedback !== null}
-                            className="soft-ui-card py-5 font-bold hover:scale-[1.02] active:soft-ui-pressed transition-all hover:border-tactical-orange disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center space-y-4 py-8">
-                      <div className="text-4xl">🎯</div>
-                      <h3 className="text-lg font-bold text-muted-blue">Sesi Diagnostik Selesai</h3>
-                      <p className="text-sm text-muted-blue/60">
-                        Estimasi kemampuan akhir (θ): <span className="font-mono font-bold text-tactical-orange">{report.theta.toFixed(3)}</span>
-                      </p>
-                      <p className="text-sm text-muted-blue/60">
-                        Mastery: <span className="font-mono font-bold">{report.mastery.toFixed(1)}%</span>
-                      </p>
-                    </div>
-                  )}
-                  </>
-                  )}
-                </div>
-              )}
-              {activeTab === 'post-live' && (
-                <PostLivePanel userId={user.id} />
-              )}
-              {activeTab === 'pricing' && (
-                <PricingPanel userId={user.id} userEmail={user.email} userName={user.name} currentPlan="free" />
-              )}
+            <motion.div key={activeTab} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.3 }}
+              className="soft-ui-card p-10 min-h-[300px] flex flex-col items-center justify-center text-center space-y-4">
+              {activeTab === 'video' && <LearnTab activeLesson={activeLesson} activeLessonIndex={activeLessonIndex} onSelectLesson={setActiveLessonIndex} />}
+              {activeTab === 'canvas' && <CanvasTab config={config} setConfig={setConfig} isDark={isDark} />}
+              {activeTab === 'assessment' && <AssessmentTab userId={user.id} moduleSlug={activeModuleSlug} onReportChange={setReport} />}
+              {activeTab === 'post-live' && <PostLivePanel userId={user.id} />}
+              {activeTab === 'pricing' && <PricingPanel userId={user.id} userEmail={user.email} userName={user.name} currentPlan="free" />}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        {/* RIGHT COLUMN: AI & PROGRESS (THE 30% MODAL) */}
-        <div className="lg:col-span-4 space-y-8">
-          
-          {/* SOCRATIC ASSISTANT PANEL */}
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-4 space-y-6">
           <SocraticPanel userId={user.id} />
-
-          {/* LEARNING STREAK TRACKER */}
           <StreakWidget userId={user.id} />
-
-          {/* CURRICULUM MODULE SELECTOR */}
           <div className="soft-ui-card p-5">
-            <ModuleSelector
-              currentModuleSlug={activeModuleSlug}
-              completedModules={completedModules}
-              onSelectModule={(slug) => setActiveModuleSlug(slug)}
-            />
+            <ModuleSelector currentModuleSlug={activeModuleSlug} completedModules={completedModules} onSelectModule={setActiveModuleSlug} />
           </div>
 
-          {/* MASTERY PROGRESS GATEKEEPER */}
-          <div className={`soft-ui-card p-6 space-y-5 border-t-4 transition-colors duration-500 ${report.status === 'QUALIFIED' ? 'border-muted-green' : 'border-tactical-orange'}`}>
-            {/* Header */}
+          {/* Mastery Gatekeeper (simplified) */}
+          <div className={`soft-ui-card p-6 space-y-4 border-t-4 ${report.status === 'QUALIFIED' ? 'border-muted-green' : 'border-tactical-orange'}`}>
             <div className="flex justify-between items-end">
               <div>
-                <h4 className="text-[10px] font-bold text-muted-blue/40 uppercase tracking-widest">Mastery Gatekeeper</h4>
+                <h4 className="text-[10px] font-bold text-muted-blue/40 uppercase tracking-widest">Mastery</h4>
                 <p className="text-xl font-black">{report.mastery.toFixed(1)}%</p>
               </div>
-              <div className={`text-[10px] font-bold px-2 py-1 rounded ${report.status === 'QUALIFIED' ? 'text-muted-green bg-muted-green/5' : 'text-tactical-orange bg-tactical-orange/5'}`}>
+              <span className={`text-[10px] font-bold px-2 py-1 rounded ${report.status === 'QUALIFIED' ? 'text-muted-green bg-muted-green/5' : 'text-tactical-orange bg-tactical-orange/5'}`}>
                 {report.status === 'QUALIFIED' ? '🔓 UNLOCKED' : '🔒 LOCKED'}
-              </div>
+              </span>
             </div>
-
-            {/* Progress Bar */}
-            <div className="relative">
-              <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${report.mastery}%` }}
-                  transition={{ duration: 0.6, ease: 'easeOut' }}
-                  className={`h-full transition-colors duration-500 ${report.status === 'QUALIFIED' ? 'bg-muted-green' : 'bg-tactical-orange'}`} 
-                />
-              </div>
-              {/* 90% threshold marker */}
-              <div className="absolute top-0 left-[90%] -translate-x-1/2 h-3 w-0.5 bg-muted-blue/30" />
-              <span className="absolute -bottom-4 left-[90%] -translate-x-1/2 text-[8px] font-mono text-muted-blue/30">90%</span>
+            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden relative">
+              <motion.div animate={{ width: `${report.mastery}%` }} className={`h-full ${report.status === 'QUALIFIED' ? 'bg-muted-green' : 'bg-tactical-orange'}`} />
+              <div className="absolute top-0 left-[90%] h-3 w-0.5 bg-muted-blue/30" />
             </div>
-
-            {/* Module Progression Map */}
-            <div className="pt-4 space-y-2">
-              <h5 className="text-[9px] font-bold uppercase tracking-widest text-muted-blue/30 mb-3">Jalur Modul</h5>
-              
-              {/* Module 1: Current */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-tactical-orange/5 border border-tactical-orange/20">
-                <div className="w-8 h-8 rounded-lg bg-tactical-orange/10 flex items-center justify-center text-tactical-orange font-black text-xs">1</div>
-                <div className="flex-1">
-                  <p className="text-xs font-bold">Aljabar & Fungsi Kuadrat</p>
-                  <p className="text-[9px] text-muted-blue/40">Sedang dikerjakan • {report.count} item selesai</p>
-                </div>
-                <div className="text-[9px] font-mono font-bold text-tactical-orange">{report.mastery.toFixed(0)}%</div>
-              </div>
-
-              {/* Module 2: Gated */}
-              <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-500 ${
-                report.status === 'QUALIFIED' 
-                  ? 'bg-muted-green/5 border-muted-green/20' 
-                  : 'bg-gray-50 border-gray-100 opacity-60'
-              }`}>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
-                  report.status === 'QUALIFIED' 
-                    ? 'bg-muted-green/10 text-muted-green' 
-                    : 'bg-gray-100 text-gray-400'
-                }`}>
-                  {report.status === 'QUALIFIED' ? '2' : '🔒'}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-xs font-bold ${report.status !== 'QUALIFIED' ? 'text-gray-400' : ''}`}>
-                    Persamaan Linear & Sistem
-                  </p>
-                  <p className="text-[9px] text-muted-blue/40">
-                    {report.status === 'QUALIFIED' ? 'Terbuka — siap dimulai' : 'Terkunci — butuh mastery ≥ 90%'}
-                  </p>
-                </div>
-                {report.status === 'QUALIFIED' && (
-                  <motion.span 
-                    initial={{ scale: 0 }} 
-                    animate={{ scale: 1 }} 
-                    className="text-muted-green text-sm">✓</motion.span>
-                )}
-              </div>
-
-              {/* Module 3: Locked */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100 opacity-40">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 font-black text-xs">🔒</div>
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-gray-400">Geometri Analitik</p>
-                  <p className="text-[9px] text-gray-400">Terkunci — selesaikan Modul 2 terlebih dahulu</p>
-                </div>
-              </div>
-            </div>
-
-            {/* CTA Button */}
-            {report.status === 'QUALIFIED' ? (
-              <div className="space-y-3">
-                <motion.button
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="w-full py-3 rounded-xl bg-muted-green text-white text-xs font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-lg"
-                >
-                  Lanjut ke Modul 2 →
-                </motion.button>
-                <CertificateGenerator
-                  studentName={user.name}
-                  moduleName="Aljabar & Fungsi Kuadrat"
-                  masteryScore={report.mastery}
-                  thetaScore={report.theta}
-                  completedDate={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  certificateId={`BIKAN-${user.id.slice(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`}
-                />
-              </div>
-            ) : (
-              <div className="w-full py-3 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold uppercase tracking-widest text-center cursor-not-allowed">
-                Selesaikan Assessment untuk Membuka Gerbang
-              </div>
+            {report.status === 'QUALIFIED' && (
+              <CertificateGenerator
+                studentName={user.name}
+                moduleName="Aljabar & Fungsi Kuadrat"
+                masteryScore={report.mastery}
+                thetaScore={report.theta}
+                completedDate={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                certificateId={`BIKAN-${user.id.slice(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`}
+              />
             )}
-
-            {/* Theta info */}
             <p className="text-[9px] text-muted-blue/30 font-mono text-center">
-              θ = {report.theta.toFixed(3)} | Mastery = {report.mastery.toFixed(1)}% | Threshold = 90%
+              θ = {report.theta.toFixed(3)} | {report.count} items | threshold 90%
             </p>
           </div>
         </div>
