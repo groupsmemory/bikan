@@ -159,9 +159,9 @@
     padding-bottom: 0.5rem;
   }
 
-  /* Touch-friendly minimum tap targets (48px per PRD) */
+  /* Touch-friendly minimum tap targets (48px per PRD WCAG compliance) */
   button, a, input[type="range"] {
-    min-height: 44px;
+    min-height: 48px;
   }
 
   /* Canvas responsive */

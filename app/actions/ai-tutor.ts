@@ -32,12 +32,16 @@ export async function askSocraticTutor(
   const startTime = Date.now();
 
   try {
+    // Prompt structure optimized for Gemini Implicit Context Caching:
+    // Static content (system instruction) FIRST → triggers cache hit on repeated calls
+    // Dynamic content (user message) LAST → only this part changes per request
+    // This reduces input token cost by up to 90% after first call
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [{
         role: 'user',
         parts: [{
-          text: `${SYSTEM_INSTRUCTION}\n\n---\nKONTEKS: ${context}\n---\nSISWA: ${message}\n---\nMaksimal 2 baris pertanyaan penuntun:`,
+          text: `${SYSTEM_INSTRUCTION}\n\n---\nKONTEKS MATERI (STATIC):\n${context}\n---\nPERTANYAAN SISWA (DYNAMIC):\n${message}\n---\nRespons (maks 2 baris pertanyaan penuntun):`,
         }],
       }],
       config: { maxOutputTokens: 150, temperature: 0.3 },

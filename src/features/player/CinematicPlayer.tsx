@@ -57,7 +57,7 @@ export const CinematicPlayer: React.FC<PlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [currentChapter, setCurrentChapter] = useState('');
 
-  // ─── HLS.js Integration (loaded via CDN) ───
+  // ─── HLS.js Integration (preloaded via layout.tsx for LCP < 1.5s) ───
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -65,10 +65,11 @@ export const CinematicPlayer: React.FC<PlayerProps> = ({
     const initPlayer = async () => {
       // Check if source is HLS (.m3u8)
       if (src.endsWith('.m3u8')) {
-        // Dynamically load HLS.js if not already loaded
+        // HLS.js should already be preloaded via layout.tsx <link rel="preload">
         if (!(window as any).Hls) {
           const script = document.createElement('script');
           script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js';
+          script.setAttribute('fetchpriority', 'high');
           script.onload = () => attachHls(video);
           document.head.appendChild(script);
         } else {

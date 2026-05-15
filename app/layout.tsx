@@ -32,6 +32,23 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
+        {/* Prefetch HLS.js for faster video initialization (LCP < 1.5s target) */}
+        <link
+          rel="preload"
+          href="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"
+          as="script"
+          crossOrigin="anonymous"
+        />
+        {/* Prefetch first HLS stream for instant playback */}
+        <link
+          rel="preconnect"
+          href="https://devstreaming-cdn.apple.com"
+        />
+        <link
+          rel="preconnect"
+          href="https://test-streams.mux.dev"
+        />
+        {/* KaTeX CSS */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
