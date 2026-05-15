@@ -199,14 +199,12 @@ export const CertificateGenerator: React.FC<CertificateProps> = ({
       {/* Preview */}
       <div className="relative rounded-xl overflow-hidden border border-muted-blue/10 shadow-lg">
         <canvas
-          ref={canvasRef}
+          ref={(el) => { canvasRef.current = el; setTimeout(generateCertificate, 100); }}
           width={1200}
           height={850}
           className="w-full h-auto"
           style={{ maxHeight: '400px', objectFit: 'contain' }}
         />
-        {/* Auto-render on mount */}
-        <div className="hidden" ref={() => setTimeout(generateCertificate, 100)} />
       </div>
 
       {/* Download Button */}
