@@ -81,6 +81,11 @@ export const AssessmentTab: React.FC<AssessmentTabProps> = ({ userId, moduleSlug
       recordActivity(userId, 2);
     });
 
+    // Persist theta to database (non-blocking)
+    import('@/app/actions/irt').then(({ recordResponseAndUpdateTheta }) => {
+      recordResponseAndUpdateTheta(userId, item.id, isCorrect, item.params);
+    });
+
     const newTheta = session.addResponse(isCorrect, item.params.b, item.params.a, item.params.c);
     const newAdministered = new Set(administeredIds);
     newAdministered.add(item.id);

@@ -36,6 +36,7 @@ export const users = imsCore.table('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull().default('student'),
+  thetaScore: numeric('theta_score', { precision: 6, scale: 4 }).default('0'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
