@@ -90,6 +90,8 @@ export async function registerUser(name: string, email: string, password: string
     // Hash password with bcrypt
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
+    // Note: 'as any' needed due to Drizzle ORM typing bug with pgSchema custom schemas
+    // Data is still validated by PostgreSQL constraints at DB level
     const [newUser] = await db.insert(users).values({
       name: name.trim(),
       email: email.toLowerCase().trim(),
