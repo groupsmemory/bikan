@@ -17,6 +17,7 @@ import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
 import { PostLivePanel } from '@/src/features/player/PostLivePanel';
 import { StreakWidget } from '@/src/features/streaks/StreakWidget';
 import { PricingPanel } from '@/src/features/payment/PricingPanel';
+import { CertificateGenerator } from '@/src/features/certificate/CertificateGenerator';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
@@ -671,13 +672,23 @@ export default function App() {
 
             {/* CTA Button */}
             {report.status === 'QUALIFIED' ? (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="w-full py-3 rounded-xl bg-muted-green text-white text-xs font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-lg"
-              >
-                Lanjut ke Modul 2 →
-              </motion.button>
+              <div className="space-y-3">
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="w-full py-3 rounded-xl bg-muted-green text-white text-xs font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-lg"
+                >
+                  Lanjut ke Modul 2 →
+                </motion.button>
+                <CertificateGenerator
+                  studentName={user.name}
+                  moduleName="Aljabar & Fungsi Kuadrat"
+                  masteryScore={report.mastery}
+                  thetaScore={report.theta}
+                  completedDate={new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  certificateId={`BIKAN-${user.id.slice(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`}
+                />
+              </div>
             ) : (
               <div className="w-full py-3 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold uppercase tracking-widest text-center cursor-not-allowed">
                 Selesaikan Assessment untuk Membuka Gerbang
