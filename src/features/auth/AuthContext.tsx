@@ -1,15 +1,15 @@
 /**
- * BIKAN Auth Context
- * ──────────────────
- * React Context untuk state management autentikasi.
- * Terhubung ke NeonDB via Next.js Server Actions.
- * Session disimpan di localStorage untuk persistence antar refresh.
+ * BIKAN Auth Context (httpOnly Cookie Session)
+ * ─────────────────────────────────────────────
+ * Session dikelola server-side via JWT httpOnly cookie.
+ * Client hanya menyimpan user data di state (bukan localStorage).
+ * Session verification dilakukan via server action.
  */
 
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { registerUser, loginUser } from '@/app/actions/auth';
+import { registerUser, loginUser, logoutUser, getCurrentSession } from '@/app/actions/auth';
 
 export interface User {
   id: string;
@@ -32,37 +32,25 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-const SESSION_KEY = 'bikan-auth-session';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session from localStorage on mount
+  // Restore session from server cookie on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SESSION_KEY);
-      if (saved) {
-        setUser(JSON.parse(saved));
-      }
-    } catch {}
-    setIsLoading(false);
+    getCurrentSession().then(({ user: sessionUser }) => {
+      setUser(sessionUser);
+      setIsLoading(false);
+    }).catch(() => {
+      setIsLoading(false);
+    });
   }, []);
-
-  // Persist user to localStorage
-  const persistUser = (u: User | null) => {
-    setUser(u);
-    if (u) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-    } else {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  };
 
   const handleLogin = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     const result = await loginUser(email, password);
     if (result.success && result.user) {
-      persistUser(result.user as User);
+      setUser(result.user as User);
     }
     return { success: result.success, error: result.error };
   }, []);
@@ -70,13 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleRegister = useCallback(async (name: string, email: string, password: string): Promise<AuthResult> => {
     const result = await registerUser(name, email, password);
     if (result.success && result.user) {
-      persistUser(result.user as User);
+      setUser(result.user as User);
     }
     return { success: result.success, error: result.error };
   }, []);
 
-  const handleLogout = useCallback(() => {
-    persistUser(null);
+  const handleLogout = useCallback(async () => {
+    await logoutUser();
+    setUser(null);
   }, []);
 
   return (

@@ -15,6 +15,7 @@ import { db } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { createSession, destroySession, getSession } from '@/lib/auth/session';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -103,6 +104,14 @@ export async function registerUser(name: string, email: string, password: string
       role: users.role,
     });
 
+    // Set httpOnly session cookie
+    await createSession({
+      userId: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+    });
+
     return { success: true, user: newUser };
   } catch (error: any) {
     console.error('[Auth] Register error:', error?.message);
@@ -147,6 +156,14 @@ export async function loginUser(email: string, password: string) {
       return { success: false, error: 'Email atau password salah' };
     }
 
+    // Set httpOnly session cookie
+    await createSession({
+      userId: found.id,
+      name: found.name,
+      email: found.email,
+      role: found.role,
+    });
+
     return {
       success: true,
       user: {
@@ -160,4 +177,24 @@ export async function loginUser(email: string, password: string) {
     console.error('[Auth] Login error:', error?.message);
     return { success: false, error: 'Terjadi kesalahan. Silakan coba lagi.' };
   }
+}
+
+// ─── Logout ───
+export async function logoutUser() {
+  await destroySession();
+  return { success: true };
+}
+
+// ─── Get Current Session (server-side) ───
+export async function getCurrentSession() {
+  const session = await getSession();
+  if (!session) return { user: null };
+  return {
+    user: {
+      id: session.userId,
+      name: session.name,
+      email: session.email,
+      role: session.role,
+    },
+  };
 }
