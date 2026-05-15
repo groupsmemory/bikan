@@ -173,3 +173,31 @@ export const modules = imsCore.table('modules', {
   active: integer('active').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── 13. SHU (Sisa Hasil Usaha) & Mentor Revenue ───
+export const mentorEarnings = imsCore.table('mentor_earnings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mentorId: uuid('mentor_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sourceType: varchar('source_type', { length: 50 }).notNull(), // 'course_sale', 'live_class', 'referral_bonus'
+  sourceId: varchar('source_id', { length: 255 }), // ID of course/session that generated revenue
+  grossAmount: integer('gross_amount').notNull(), // Total revenue in IDR
+  platformFee: integer('platform_fee').notNull(), // Platform cut (15% max per PRD)
+  netAmount: integer('net_amount').notNull(), // Mentor's share
+  convertedToCapital: integer('converted_to_capital').notNull().default(0), // Amount converted to koperasi equity
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'paid', 'converted'
+  periodMonth: integer('period_month').notNull(), // 1-12
+  periodYear: integer('period_year').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const shuDistributions = imsCore.table('shu_distributions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  memberId: uuid('member_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  memberType: varchar('member_type', { length: 30 }).notNull(), // 'producer', 'consumer', 'founder'
+  periodYear: integer('period_year').notNull(),
+  shuJasaUsaha: integer('shu_jasa_usaha').notNull().default(0), // From transaction volume
+  shuJasaModal: integer('shu_jasa_modal').notNull().default(0), // From capital contribution
+  totalShu: integer('total_shu').notNull().default(0),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
