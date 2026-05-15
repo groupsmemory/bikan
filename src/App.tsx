@@ -5,11 +5,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, BrainCircuit, Activity, Calculator, Sliders, Moon, Sun, Monitor, WifiOff, BookOpen, LogOut, Mic, MicOff } from 'lucide-react';
+import { Calculator, Sliders, WifiOff, BookOpen } from 'lucide-react';
 import { QuadraticCanvas } from '@/src/features/canvas/QuadraticCanvas';
 import { DiagnosticSession } from '@/src/features/assessment/diagnostic-service';
 import { calculateItemInformation, ItemParameters } from '@/lib/ai/irt-engine';
-import { askSocraticTutor } from '@/app/actions/ai-tutor';
 import { useDarkMode } from '@/src/hooks/use-dark-mode';
 import { useOnlineStatus } from '@/src/hooks/use-offline';
 import { useVoiceInput } from '@/src/hooks/use-voice-input';
@@ -22,11 +21,11 @@ import { ModuleSelector } from '@/src/features/curriculum/ModuleSelector';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
+import { AppHeader } from '@/src/features/layout/AppHeader';
+import { SocraticPanel } from '@/src/features/chat/SocraticPanel';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('canvas');
-  const [aiResponse, setAiResponse] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Active lesson for video player
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
@@ -174,19 +173,15 @@ export default function App() {
     }, 1200);
   };
 
-  // Simulated Socratic Interaction
-  const [chatInput, setChatInput] = useState('');
-  const [tokenInfo, setTokenInfo] = useState<{ total: number; cached: number; latency: number } | null>(null);
+  // Socratic chat state (hooks kept for consistent order, logic moved to SocraticPanel)
+  const [, ] = useState('');
+  const [, ] = useState<{ total: number; cached: number; latency: number } | null>(null);
 
-  // Voice Input (PRD US-ALG-004)
-  const { isListening, transcript, isSupported: voiceSupported, error: voiceError, startListening, stopListening } = useVoiceInput('id-ID');
+  // Voice Input hook (kept for consistent hooks order)
+  useVoiceInput('id-ID');
 
-  // Auto-fill chat input when voice transcript changes
-  useEffect(() => {
-    if (transcript) {
-      setChatInput(transcript);
-    }
-  }, [transcript]);
+  // eslint-disable-next-line
+  useEffect(() => {}, []);
 
   // ─── Auth Guard (setelah semua hooks dipanggil) ───
   if (isLoading) {
@@ -200,30 +195,6 @@ export default function App() {
   if (!user) {
     return <AuthScreen isDark={isDark} />;
   }
-
-  const handleAskAI = async () => {
-    const message = chatInput.trim();
-    if (!message || isAiLoading) return;
-
-    setIsAiLoading(true);
-    setChatInput('');
-
-    try {
-      const result = await askSocraticTutor(
-        user.id,
-        message,
-        'Materi: Aljabar dasar, persamaan kuadrat, fungsi kuadrat f(x) = ax² + bx + c, diskriminan, titik puncak parabola.'
-      );
-
-      setAiResponse(result.text);
-      setTokenInfo({ total: result.tokens, cached: result.cached, latency: result.latencyMs });
-    } catch (error: any) {
-      setAiResponse(error.message || 'Terjadi kesalahan. Coba lagi.');
-      setTokenInfo(null);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
 
   return (
     <div className={`min-h-screen font-sans antialiased selection:bg-tactical-orange/20 transition-colors duration-300 ${isDark ? 'bg-[#0F172A] text-[#F1F5F9]' : 'bg-neutral-base text-muted-blue'}`}>
@@ -243,46 +214,15 @@ export default function App() {
       </AnimatePresence>
 
       {/* 1. TOP PERSISTENT PLAYER BAR */}
-      <header className="sticky top-0 z-50 bg-white/50 backdrop-blur-xl border-b border-white/50 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-muted-blue to-black flex items-center justify-center text-white font-black shadow-lg">
-            B
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight">KMP BIKAN 2026</h1>
-            <p className="text-[10px] font-medium text-muted-blue/40 uppercase tracking-widest">Architectural Preview v1.0</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <div className="hidden md:flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
-            <Activity className="w-3 h-3 text-tactical-orange" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-blue/60">θ: {report.theta.toFixed(2)} • {user.name}</span>
-          </div>
-
-          {/* Dark Mode Toggle */}
-          <button 
-            onClick={toggle}
-            className="soft-ui-card p-2 rounded-xl hover:scale-105 transition-transform relative group"
-            aria-label={`Tema: ${mode === 'auto' ? 'Otomatis' : mode === 'dark' ? 'Gelap' : 'Terang'}`}
-            title={`Mode: ${mode}${luxLevel !== null ? ` (lux: ${luxLevel.toFixed(0)})` : ''}`}
-          >
-            {mode === 'dark' && <Moon className="w-5 h-5 text-indigo-400" />}
-            {mode === 'light' && <Sun className="w-5 h-5 text-tactical-orange" />}
-            {mode === 'auto' && <Monitor className="w-5 h-5 text-muted-blue/60" />}
-            <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${isDark ? 'bg-indigo-400' : 'bg-tactical-orange'}`} />
-          </button>
-
-          {/* Logout */}
-          <button 
-            onClick={handleLogout}
-            className="soft-ui-card p-2 rounded-xl text-muted-blue/40 hover:text-tactical-red hover:scale-105 transition-all"
-            title="Keluar"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        userName={user.name}
+        theta={report.theta}
+        mode={mode}
+        isDark={isDark}
+        luxLevel={luxLevel}
+        onToggleTheme={toggle}
+        onLogout={handleLogout}
+      />
 
       {/* 2. MAIN CONTENT GRID */}
       <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -522,74 +462,7 @@ export default function App() {
         <div className="lg:col-span-4 space-y-8">
           
           {/* SOCRATIC ASSISTANT PANEL */}
-          <div className="soft-ui-card bg-muted-blue p-6 text-white overflow-hidden relative min-h-[400px] flex flex-col">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-tactical-orange flex items-center justify-center">?</div>
-              <h3 className="font-bold text-sm">Socratic Assistant</h3>
-            </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-              <div className="bg-white/10 p-4 rounded-2xl rounded-tl-none text-[13px] leading-relaxed border border-white/5">
-                Selamat datang di sesi IRT Adaptif. Materi apa yang ingin Anda eksplorasi lebih dalam?
-              </div>
-              
-              {aiResponse && (
-                <motion.div 
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="bg-tactical-orange/20 p-4 rounded-2xl rounded-tr-none text-[13px] leading-relaxed border border-tactical-orange/30 italic self-end ml-4"
-                >
-                  {aiResponse}
-                  {tokenInfo && (
-                    <div className="mt-2 text-[9px] font-mono text-white/30 not-italic">
-                      tokens: {tokenInfo.total} | cached: {tokenInfo.cached} | {tokenInfo.latency}ms
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </div>
-
-            <div className="mt-4 relative">
-              <input 
-                disabled={isAiLoading}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={isListening ? '🎙️ Mendengarkan...' : 'Tanyakan sesuatu...'}
-                className={`w-full bg-white/5 border rounded-xl px-4 py-3 pr-20 text-sm focus:outline-none focus:ring-2 focus:ring-tactical-orange transition-all placeholder:text-white/20 ${
-                  isListening ? 'border-tactical-orange/50 ring-1 ring-tactical-orange/30' : 'border-white/10'
-                }`}
-                onKeyDown={(e) => e.key === 'Enter' && handleAskAI()}
-              />
-              <div className="absolute right-2 top-2 flex gap-1">
-                {/* Voice Input Button */}
-                {voiceSupported && (
-                  <button
-                    onClick={isListening ? stopListening : startListening}
-                    disabled={isAiLoading}
-                    className={`p-1.5 rounded-lg transition-all ${
-                      isListening 
-                        ? 'bg-tactical-red animate-pulse shadow-lg' 
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                    title={isListening ? 'Stop' : 'Input suara'}
-                  >
-                    {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-white/60" />}
-                  </button>
-                )}
-                {/* Send Button */}
-                <button 
-                  onClick={handleAskAI}
-                  disabled={isAiLoading || !chatInput.trim()}
-                  className="p-1.5 bg-tactical-orange rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  <ChevronRight className="w-4 h-4 text-white" />
-                </button>
-              </div>
-              {voiceError && (
-                <p className="text-[9px] text-tactical-red/80 mt-1">{voiceError}</p>
-              )}
-            </div>
-          </div>
+          <SocraticPanel userId={user.id} />
 
           {/* LEARNING STREAK TRACKER */}
           <StreakWidget userId={user.id} />
