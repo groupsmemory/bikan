@@ -18,6 +18,7 @@ import { PostLivePanel } from '@/src/features/player/PostLivePanel';
 import { StreakWidget } from '@/src/features/streaks/StreakWidget';
 import { PricingPanel } from '@/src/features/payment/PricingPanel';
 import { CertificateGenerator } from '@/src/features/certificate/CertificateGenerator';
+import { ModuleSelector } from '@/src/features/curriculum/ModuleSelector';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
@@ -30,6 +31,10 @@ export default function App() {
   // Active lesson for video player
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const activeLesson = MODULE_1.lessons[activeLessonIndex];
+
+  // Active curriculum module
+  const [activeModuleSlug, setActiveModuleSlug] = useState('mod-aljabar-kuadrat');
+  const [completedModules, setCompletedModules] = useState<string[]>([]);
 
   // Dark Mode Adaptif (PRD US-ALG-001: lux < 50 → auto dark)
   const { mode, isDark, luxLevel, toggle } = useDarkMode();
@@ -61,7 +66,7 @@ export default function App() {
   useEffect(() => {
     async function loadItems() {
       const { getItemsByModule } = await import('@/app/actions/assessment');
-      const items = await getItemsByModule('mod-aljabar-kuadrat');
+      const items = await getItemsByModule(activeModuleSlug);
       const mapped: LocalItem[] = items.map(item => ({
         id: item.id,
         question: item.question,
@@ -75,7 +80,7 @@ export default function App() {
       setItemsLoading(false);
     }
     loadItems();
-  }, []);
+  }, [activeModuleSlug]);
 
   // Track which items have been administered
   const [administeredIds, setAdministeredIds] = useState<Set<string>>(new Set());
@@ -588,6 +593,15 @@ export default function App() {
 
           {/* LEARNING STREAK TRACKER */}
           <StreakWidget userId={user.id} />
+
+          {/* CURRICULUM MODULE SELECTOR */}
+          <div className="soft-ui-card p-5">
+            <ModuleSelector
+              currentModuleSlug={activeModuleSlug}
+              completedModules={completedModules}
+              onSelectModule={(slug) => setActiveModuleSlug(slug)}
+            />
+          </div>
 
           {/* MASTERY PROGRESS GATEKEEPER */}
           <div className={`soft-ui-card p-6 space-y-5 border-t-4 transition-colors duration-500 ${report.status === 'QUALIFIED' ? 'border-muted-green' : 'border-tactical-orange'}`}>

@@ -158,3 +158,31 @@ export const subscriptions = imsCore.table('subscriptions', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── 12. Curriculum Modules ───
+export const modules = imsCore.table('modules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  order: integer('order').notNull().default(0),
+  masteryThreshold: integer('mastery_threshold').notNull().default(90),
+  prerequisiteModuleId: uuid('prerequisite_module_id'),
+  iconEmoji: varchar('icon_emoji', { length: 10 }).default('📘'),
+  active: integer('active').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── 12. Curriculum Modules ───
+export const modules = imsCore.table('modules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  orderIndex: integer('order_index').notNull().default(0),
+  masteryThreshold: integer('mastery_threshold').notNull().default(90),
+  prerequisiteModuleId: uuid('prerequisite_module_id'),
+  iconEmoji: varchar('icon_emoji', { length: 10 }),
+  active: integer('active').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
