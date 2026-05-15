@@ -137,3 +137,53 @@
 .error-pendaran {
   animation: error-glow 1.2s ease-out, shake 0.4s ease-in-out;
 }
+
+/* ─── Responsive Mobile Optimizations ─── */
+@media (max-width: 768px) {
+  /* Smaller padding on mobile */
+  main {
+    padding: 1rem !important;
+    gap: 1rem !important;
+  }
+
+  /* Stack grid to single column */
+  .lg\:col-span-8,
+  .lg\:col-span-4 {
+    grid-column: span 1;
+  }
+
+  /* Smaller tab buttons */
+  .soft-ui-card button {
+    font-size: 9px;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Touch-friendly minimum tap targets (48px per PRD) */
+  button, a, input[type="range"] {
+    min-height: 44px;
+  }
+
+  /* Canvas responsive */
+  canvas {
+    max-width: 100%;
+    height: auto !important;
+  }
+}
+
+/* ─── Loading Skeleton Animation ─── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(30,41,59,0.05) 25%, rgba(30,41,59,0.1) 50%, rgba(30,41,59,0.05) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, rgba(241,245,249,0.03) 25%, rgba(241,245,249,0.08) 50%, rgba(241,245,249,0.03) 75%);
+}

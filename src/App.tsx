@@ -23,6 +23,7 @@ import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
 import { AppHeader } from '@/src/features/layout/AppHeader';
 import { SocraticPanel } from '@/src/features/chat/SocraticPanel';
+import { OnboardingModal, shouldShowOnboarding } from '@/src/features/onboarding/OnboardingModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('canvas');
@@ -183,6 +184,12 @@ export default function App() {
   // eslint-disable-next-line
   useEffect(() => {}, []);
 
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (shouldShowOnboarding()) setShowOnboarding(true);
+  }, []);
+
   // ─── Auth Guard (setelah semua hooks dipanggil) ───
   if (isLoading) {
     return (
@@ -198,6 +205,11 @@ export default function App() {
 
   return (
     <div className={`min-h-screen font-sans antialiased selection:bg-tactical-orange/20 transition-colors duration-300 ${isDark ? 'bg-[#0F172A] text-[#F1F5F9]' : 'bg-neutral-base text-muted-blue'}`}>
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <OnboardingModal userName={user.name} onComplete={() => setShowOnboarding(false)} />
+      )}
+
       {/* Offline Banner */}
       <AnimatePresence>
         {!isOnline && (
