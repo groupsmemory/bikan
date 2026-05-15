@@ -8,7 +8,8 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { createInvoice, PLANS } from '@/app/actions/payment';
+import { createInvoice } from '@/app/actions/payment';
+import { PLANS } from '@/lib/plans';
 
 interface PricingPanelProps {
   userId: string;

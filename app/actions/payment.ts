@@ -2,42 +2,16 @@
 
 /**
  * BIKAN Payment Server Actions (Xendit)
- * ──────────────────────────────────────
- * Virtual Account & Invoice creation for subscription payments
- * Supports: VA Bank Transfer, E-Wallet, QR Code
- *
- * Pricing (PRD):
- * - Basic: Rp 99.000/bulan (akses semua video + assessment)
- * - Premium: Rp 199.000/bulan (+ AI tutor unlimited + sertifikat)
  */
 
 import { db } from '@/lib/db/client';
 import { subscriptions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { PLANS, PlanId } from '@/lib/plans';
 
 const XENDIT_SECRET = process.env.XENDIT_SECRET_KEY!;
 const XENDIT_BASE_URL = 'https://api.xendit.co';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bikan.vercel.app';
-
-// ─── Plan Definitions ───
-export const PLANS = {
-  basic: {
-    id: 'basic',
-    name: 'BIKAN Basic',
-    price: 99000,
-    description: 'Akses semua video materi + assessment adaptif',
-    features: ['Video micro-learning', 'Assessment IRT adaptif', 'Mastery tracking', 'Offline mode'],
-  },
-  premium: {
-    id: 'premium',
-    name: 'BIKAN Premium',
-    price: 199000,
-    description: 'Semua fitur Basic + AI Tutor unlimited + sertifikat',
-    features: ['Semua fitur Basic', 'AI Socratic Tutor unlimited', 'Post-live automation', 'Sertifikat digital', 'Priority support'],
-  },
-} as const;
-
-type PlanId = keyof typeof PLANS;
 
 /**
  * Create Xendit Invoice for subscription payment
