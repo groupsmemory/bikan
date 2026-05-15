@@ -141,3 +141,20 @@ export const learningStreaks = imsCore.table('learning_streaks', {
   activitiesCompleted: integer('activities_completed').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── 11. Subscriptions & Payments ───
+export const subscriptionPlanEnum = imsCore.enum('subscription_plan', ['free', 'basic', 'premium']);
+export const paymentStatusEnum = imsCore.enum('payment_status', ['pending', 'paid', 'expired', 'failed']);
+
+export const subscriptions = imsCore.table('subscriptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  plan: subscriptionPlanEnum('plan').notNull().default('free'),
+  xenditInvoiceId: varchar('xendit_invoice_id', { length: 255 }),
+  xenditPaymentUrl: text('xendit_payment_url'),
+  amount: integer('amount').notNull().default(0),
+  status: paymentStatusEnum('status').notNull().default('pending'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

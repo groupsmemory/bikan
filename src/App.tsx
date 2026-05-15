@@ -16,6 +16,7 @@ import { useVoiceInput } from '@/src/hooks/use-voice-input';
 import { CinematicPlayer } from '@/src/features/player/CinematicPlayer';
 import { PostLivePanel } from '@/src/features/player/PostLivePanel';
 import { StreakWidget } from '@/src/features/streaks/StreakWidget';
+import { PricingPanel } from '@/src/features/payment/PricingPanel';
 import { MODULE_1 } from '@/src/data/lessons';
 import { useAuth } from '@/src/features/auth/AuthContext';
 import { AuthScreen } from '@/src/features/auth/AuthScreen';
@@ -299,7 +300,7 @@ export default function App() {
 
           {/* DYNAMIC TABS FOR CANVAS / ASSESSMENT */}
           <div className="soft-ui-card p-2 flex gap-1 bg-white/50 border-white/50">
-            {['video', 'canvas', 'assessment', 'post-live'].map((tab) => (
+            {['video', 'canvas', 'assessment', 'post-live', 'pricing'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -503,6 +504,9 @@ export default function App() {
               )}
               {activeTab === 'post-live' && (
                 <PostLivePanel userId={user.id} />
+              )}
+              {activeTab === 'pricing' && (
+                <PricingPanel userId={user.id} userEmail={user.email} userName={user.name} currentPlan="free" />
               )}
             </motion.div>
           </AnimatePresence>
