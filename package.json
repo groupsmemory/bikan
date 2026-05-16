@@ -10,9 +10,10 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:check": "drizzle-kit check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
+    "db:push": "drizzle-kit check && drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
