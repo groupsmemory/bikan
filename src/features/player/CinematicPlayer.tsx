@@ -12,6 +12,7 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import Hls from 'hls.js';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw } from 'lucide-react';
 
 interface Chapter {
@@ -57,64 +58,84 @@ export const CinematicPlayer: React.FC<PlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [currentChapter, setCurrentChapter] = useState('');
 
-  // ─── HLS.js Integration (preloaded via layout.tsx for LCP < 1.5s) ───
+  // ─── HLS.js Integration (npm import, tree-shaken, no CDN dependency) ───
+  const hlsRef = useRef<Hls | null>(null);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const initPlayer = async () => {
-      // Check if source is HLS (.m3u8)
-      if (src.endsWith('.m3u8')) {
-        // HLS.js should already be preloaded via layout.tsx <link rel="preload">
-        if (!(window as any).Hls) {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js';
-          script.setAttribute('fetchpriority', 'high');
-          script.onload = () => attachHls(video);
-          document.head.appendChild(script);
-        } else {
-          attachHls(video);
-        }
-      } else {
-        // Direct video source (mp4, webm)
-        video.src = src;
-      }
-    };
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
 
-    const attachHls = (videoEl: HTMLVideoElement) => {
-      const Hls = (window as any).Hls;
+    if (src.endsWith('.m3u8')) {
       if (Hls.isSupported()) {
         const hls = new Hls({
-          startLevel: -1, // Auto quality selection
-          capLevelToPlayerSize: true,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
+          startLevel: -1,            // Auto quality selection
+          capLevelToPlayerSize: true, // Match quality to player size
+          maxBufferLength: 30,        // Buffer 30s ahead
+          maxMaxBufferLength: 60,     // Max buffer cap
+          lowLatencyMode: false,      // VOD content, no need for low latency
         });
+
         hls.loadSource(src);
-        hls.attachMedia(videoEl);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => setIsLoading(false));
-        hls.on(Hls.Events.ERROR, (_: any, data: any) => {
-          if (data.fatal) {
-            console.error('[BIKAN Player] HLS fatal error:', data.type);
-            // Fallback: try direct source
-            videoEl.src = src;
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsLoading(false);
+          // Restore saved timestamp after manifest is ready
+          const savedTime = localStorage.getItem(getStorageKey(lessonId));
+          if (savedTime) {
+            video.currentTime = parseFloat(savedTime);
           }
         });
-      } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari native HLS
-        videoEl.src = src;
+
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) {
+            console.error('[BIKAN Player] HLS fatal error:', data.type);
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                // Try to recover from network error
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                // Unrecoverable — fallback to direct source
+                hls.destroy();
+                video.src = src;
+                break;
+            }
+          }
+        });
+
+        hlsRef.current = hls;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS support
+        video.src = src;
+        const savedTime = localStorage.getItem(getStorageKey(lessonId));
+        if (savedTime) {
+          video.currentTime = parseFloat(savedTime);
+        }
       }
-    };
-
-    initPlayer();
-
-    // Restore saved timestamp
-    const savedTime = localStorage.getItem(getStorageKey(lessonId));
-    if (savedTime) {
-      video.currentTime = parseFloat(savedTime);
+    } else {
+      // Direct video source (mp4, webm)
+      video.src = src;
+      const savedTime = localStorage.getItem(getStorageKey(lessonId));
+      if (savedTime) {
+        video.currentTime = parseFloat(savedTime);
+      }
     }
 
     return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
       if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
     };
   }, [src, lessonId]);

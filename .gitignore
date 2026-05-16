@@ -7,3 +7,10 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# HLS Video Segments (large binary files — encode locally, don't commit)
+# Uncomment the line below if you want to exclude video segments from Git:
+# public/videos/**/*.ts
+# public/videos/**/*.m3u8
+# Keep README for documentation:
+!public/videos/README.md

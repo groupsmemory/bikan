@@ -1,22 +1,65 @@
 "use server";
 
 import { GoogleGenAI } from "@google/genai";
+import { getAIContextForLesson, findLessonById } from "@/src/data/lessons";
+import type { AIContext } from "@/src/data/lessons";
 
 /**
- * BIKAN Socratic Assistant - Server Action
- * ─────────────────────────────────────────
+ * BIKAN Socratic Assistant - Server Action (Optimized for Free Tier)
+ * ──────────────────────────────────────────────────────────────────
+ * Arsitektur $0:
+ * - Model: Gemini 2.5 Flash (Free Tier via Google AI Studio API Key)
+ * - Context: Diambil langsung dari Git-CMS (src/data/lessons.ts) → 0ms, no DB call
+ * - Rate Limit: 15 RPM / 1M TPM / 1500 RPD (Free Tier limits)
+ * - Caching: Prompt structure optimized for Gemini implicit context caching
+ *   → System instruction + static context FIRST (cached after 1st call)
+ *   → Dynamic user message LAST (only this changes per request)
+ *
  * PRD US-ALG-004 Compliance:
- * 1. Model AI wajib menghasilkan respon berbasis perancah kognitif Sokratik
- *    dengan batasan ketat MAKSIMAL 2 baris pertanyaan penuntun.
- * 2. TIDAK PERNAH membocorkan jawaban akhir.
- * 3. Setiap interaksi mencatat penggunaan token (termasuk cached_tokens)
- *    untuk skema ims_analytics.ai_interaction_logs.
+ * 1. Respon berbasis perancah kognitif Sokratik (maks 2 baris pertanyaan penuntun)
+ * 2. TIDAK PERNAH membocorkan jawaban akhir
+ * 3. Token usage di-log ke ims_analytics.ai_interaction_logs
  */
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-// ─── System Instruction: Socratic Scaffolding Protocol ───
-// Ditempatkan di awal prompt untuk memaksimalkan implicit cache hit (PRD Gemini Optimization)
+// ─── Rate Limiter (in-memory, per-server-instance) ───
+// Google AI Studio Free Tier: 15 requests/minute, 1500 requests/day
+const rateLimiter = {
+  requests: [] as number[],
+  dailyCount: 0,
+  lastDayReset: Date.now(),
+
+  canProceed(): boolean {
+    const now = Date.now();
+
+    // Reset daily counter at midnight
+    if (now - this.lastDayReset > 86_400_000) {
+      this.dailyCount = 0;
+      this.lastDayReset = now;
+    }
+
+    // Check daily limit (1500 RPD, leave 10% buffer)
+    if (this.dailyCount >= 1350) return false;
+
+    // Clean requests older than 1 minute
+    this.requests = this.requests.filter((t) => now - t < 60_000);
+
+    // Check per-minute limit (15 RPM, leave 2 buffer)
+    if (this.requests.length >= 13) return false;
+
+    return true;
+  },
+
+  record(): void {
+    this.requests.push(Date.now());
+    this.dailyCount++;
+  },
+};
+
+// ─── System Instruction (STATIC — triggers Gemini implicit cache) ───
+// Ditempatkan di awal prompt. Setelah panggilan pertama, Gemini akan
+// meng-cache bagian ini secara otomatis → hemat token input hingga 90%
 const SYSTEM_INSTRUCTION = `Anda adalah Asisten Sokratik BIKAN untuk pembelajaran matematika aljabar dan fungsi kuadrat.
 
 ATURAN MUTLAK YANG TIDAK BOLEH DILANGGAR:
@@ -37,7 +80,35 @@ CONTOH RESPONS YANG BENAR:
 CONTOH RESPONS YANG SALAH (DILARANG):
 "Jawabannya adalah x = -1 karena f(-1) = (-1)² + 2(-1) + 1 = 0."`;
 
-// ─── Token Usage Logger (ims_analytics.ai_interaction_logs schema) ───
+// ─── Build Context from Git-CMS (0ms, no network call) ───
+function buildLessonContext(lessonId: string): string {
+  const lesson = findLessonById(lessonId);
+  const aiCtx = getAIContextForLesson(lessonId);
+
+  if (!lesson || !aiCtx) {
+    return "Konteks: Pembelajaran matematika aljabar umum.";
+  }
+
+  // Structured context that helps AI give better Socratic responses
+  // This replaces the need for a separate vector DB or long-term memory store
+  return `TOPIK: ${lesson.title}
+DESKRIPSI: ${lesson.description}
+LEVEL BLOOM: ${lesson.bloomLevel}
+KATA KUNCI: ${aiCtx.keywords.join(", ")}
+
+MISKONSEPSI UMUM SISWA:
+${aiCtx.commonMisconceptions.map((m, i) => `${i + 1}. ${m}`).join("\n")}
+
+CONTOH PERTANYAAN SOKRATIK:
+${aiCtx.socraticPrompts.map((p, i) => `${i + 1}. ${p}`).join("\n")}
+
+SCAFFOLDING HINTS (gunakan jika siswa sangat kesulitan):
+${aiCtx.scaffoldingHints.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+
+PRASYARAT YANG SUDAH DIPELAJARI: ${aiCtx.prerequisites.length > 0 ? aiCtx.prerequisites.join(", ") : "Tidak ada (lesson pertama)"}`;
+}
+
+// ─── Token Usage Logger ───
 interface TokenLog {
   userId: string;
   promptTokens: number;
@@ -49,8 +120,8 @@ interface TokenLog {
 }
 
 async function logToAnalytics(data: TokenLog): Promise<void> {
-  // Production: await db.insert(ai_interaction_logs).values({...})
-  // Untuk MVP/local testing, log ke console dengan format yang match skema DB
+  // Production: await db.insert(aiInteractionLogs).values({...})
+  // MVP: console log matching ims_analytics schema
   console.log("[ims_analytics.ai_interaction_logs]", {
     user_id: data.userId,
     prompt_tokens: data.promptTokens,
@@ -70,18 +141,18 @@ function validateSocraticResponse(text: string): string {
   // Enforce max 2 lines
   const truncated = lines.slice(0, 2).join("\n");
 
-  // Check for answer-leaking patterns (basic heuristic guard)
+  // Check for answer-leaking patterns
   const leakPatterns = [
     /jawabannya\s+(adalah|=)/i,
     /solusinya\s+(adalah|=)/i,
     /hasilnya\s+(adalah|=)/i,
     /maka\s+x\s*=\s*[-\d]/i,
     /jadi,?\s+(nilai|x|y)\s*=\s*/i,
+    /sehingga\s+(x|y|f\(x\))\s*=\s*/i,
   ];
 
   for (const pattern of leakPatterns) {
     if (pattern.test(truncated)) {
-      // Jika terdeteksi bocor, ganti dengan fallback Sokratik
       return "Coba pikirkan kembali — langkah apa yang bisa kamu ambil selanjutnya untuk mendekati solusi?\nApa yang terjadi jika kamu coba substitusi nilai yang berbeda?";
     }
   }
@@ -91,15 +162,53 @@ function validateSocraticResponse(text: string): string {
 
 /**
  * Main Server Action: Tanyakan Asisten Sokratik
+ *
+ * @param userId - ID siswa (untuk logging)
+ * @param userMessage - Pertanyaan siswa
+ * @param lessonId - ID lesson aktif (untuk ambil context dari Git-CMS)
+ *
+ * Flow:
+ * 1. Rate limit check (protect Free Tier quota)
+ * 2. Build context dari Git-CMS (0ms, no DB call)
+ * 3. Call Gemini 2.5 Flash (optimized prompt structure for caching)
+ * 4. Validate output (no answer leaking)
+ * 5. Log token usage
  */
 export async function askSocraticAssistant(
   userId: string,
   userMessage: string,
-  lessonContext: string
-): Promise<{ text: string; tokens: number; cached: number; latencyMs: number }> {
+  lessonId: string
+): Promise<{
+  text: string;
+  tokens: number;
+  cached: number;
+  latencyMs: number;
+  rateLimited: boolean;
+}> {
   const startTime = Date.now();
 
+  // ─── Rate Limit Guard ───
+  if (!rateLimiter.canProceed()) {
+    return {
+      text: "Asisten sedang sibuk melayani siswa lain. Coba lagi dalam 1 menit ya! 🙏",
+      tokens: 0,
+      cached: 0,
+      latencyMs: Date.now() - startTime,
+      rateLimited: true,
+    };
+  }
+
   try {
+    // ─── Build Context from Git-CMS (FREE, 0ms) ───
+    const lessonContext = buildLessonContext(lessonId);
+
+    // ─── Gemini API Call ───
+    // Prompt structure optimized for implicit context caching:
+    // [STATIC: System Instruction] → cached after 1st call
+    // [SEMI-STATIC: Lesson Context] → cached per-lesson (same lesson = cache hit)
+    // [DYNAMIC: User Message] → only this changes per request
+    rateLimiter.record();
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [
@@ -107,7 +216,7 @@ export async function askSocraticAssistant(
           role: "user",
           parts: [
             {
-              text: `${SYSTEM_INSTRUCTION}\n\n---\nKONTEKS MATERI: ${lessonContext}\n---\nPERTANYAAN SISWA: ${userMessage}\n---\nBerikan MAKSIMAL 2 baris pertanyaan penuntun saja.`,
+              text: `${SYSTEM_INSTRUCTION}\n\n---\nKONTEKS MATERI (dari kurikulum BIKAN):\n${lessonContext}\n---\nPERTANYAAN SISWA:\n${userMessage}\n---\nBerikan MAKSIMAL 2 baris pertanyaan penuntun Sokratik saja.`,
             },
           ],
         },
@@ -115,6 +224,7 @@ export async function askSocraticAssistant(
       config: {
         maxOutputTokens: 150, // Ketat: cukup untuk 2 baris pertanyaan
         temperature: 0.3, // Rendah: konsisten dan terkontrol
+        topP: 0.8, // Fokus pada respons yang paling relevan
       },
     });
 
@@ -125,7 +235,7 @@ export async function askSocraticAssistant(
     // Validate and sanitize output
     const validatedText = validateSocraticResponse(rawText);
 
-    // Log token usage to ims_analytics
+    // Log token usage
     const tokenLog: TokenLog = {
       userId,
       promptTokens: metadata?.promptTokenCount ?? 0,
@@ -143,11 +253,15 @@ export async function askSocraticAssistant(
       tokens: tokenLog.totalTokens,
       cached: tokenLog.cachedTokens,
       latencyMs,
+      rateLimited: false,
     };
-  } catch (error) {
+  } catch (error: any) {
     const latencyMs = Date.now() - startTime;
 
-    // Log failed attempt
+    // Handle specific Gemini errors
+    const isRateLimit =
+      error?.status === 429 || error?.message?.includes("RESOURCE_EXHAUSTED");
+
     await logToAnalytics({
       userId,
       promptTokens: 0,
@@ -155,12 +269,29 @@ export async function askSocraticAssistant(
       totalTokens: 0,
       cachedTokens: 0,
       latencyMs,
-      workflowTag: "socratic_scaffolding_error",
+      workflowTag: isRateLimit
+        ? "socratic_rate_limited"
+        : "socratic_scaffolding_error",
     });
 
-    console.error("[BIKAN AI ERROR]", error);
-    throw new Error(
-      "Asisten sedang istirahat sejenak. Silakan coba lagi dalam 1-2 menit."
-    );
+    console.error("[BIKAN AI ERROR]", error?.message || error);
+
+    if (isRateLimit) {
+      return {
+        text: "Kuota AI harian hampir habis. Coba lagi besok atau gunakan scaffolding hints di bawah video! 📚",
+        tokens: 0,
+        cached: 0,
+        latencyMs,
+        rateLimited: true,
+      };
+    }
+
+    return {
+      text: "Asisten sedang istirahat sejenak. Silakan coba lagi dalam 1-2 menit.",
+      tokens: 0,
+      cached: 0,
+      latencyMs,
+      rateLimited: false,
+    };
   }
 }

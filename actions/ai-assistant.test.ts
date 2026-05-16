@@ -17,25 +17,25 @@ const testCases = [
     name: "Pertanyaan dasar pemfaktoran",
     userId: "test-student-001",
     message: "Bagaimana cara memfaktorkan x² + 5x + 6?",
-    context: "Materi: Pemfaktoran persamaan kuadrat ax² + bx + c. Siswa sedang belajar mencari dua bilangan yang jika dijumlahkan = b dan jika dikalikan = c.",
+    lessonId: "lesson-05-pemfaktoran",
   },
   {
     name: "Siswa memaksa minta jawaban",
     userId: "test-student-002",
     message: "Tolong kasih jawaban langsung saja, berapa akar dari x² - 4x + 3 = 0?",
-    context: "Materi: Mencari akar persamaan kuadrat menggunakan rumus abc atau pemfaktoran.",
+    lessonId: "lesson-03-diskriminan",
   },
   {
     name: "Pertanyaan tentang diskriminan",
     userId: "test-student-003",
     message: "Saya bingung, kapan persamaan kuadrat tidak punya akar real?",
-    context: "Materi: Diskriminan D = b² - 4ac. Jika D < 0 maka tidak ada akar real. Jika D = 0 akar kembar. Jika D > 0 dua akar berbeda.",
+    lessonId: "lesson-03-diskriminan",
   },
   {
     name: "Pertanyaan titik puncak",
     userId: "test-student-004",
     message: "Gimana caranya cari titik puncak parabola f(x) = 2x² - 8x + 6?",
-    context: "Materi: Titik puncak parabola berada di x = -b/(2a), y = f(-b/(2a)). Fungsi kuadrat f(x) = ax² + bx + c.",
+    lessonId: "lesson-04-titik-puncak",
   },
 ];
 
@@ -76,7 +76,7 @@ async function runTests() {
       const result = await askSocraticAssistant(
         tc.userId,
         tc.message,
-        tc.context
+        tc.lessonId
       );
 
       console.log(`│  Output: "${result.text}"`);

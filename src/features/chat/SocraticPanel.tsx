@@ -14,9 +14,11 @@ import { useVoiceInput } from '@/src/hooks/use-voice-input';
 
 interface SocraticPanelProps {
   userId: string;
+  /** Active lesson ID — used to pull AIContext from Git-CMS */
+  lessonId?: string;
 }
 
-export const SocraticPanel: React.FC<SocraticPanelProps> = ({ userId }) => {
+export const SocraticPanel: React.FC<SocraticPanelProps> = ({ userId, lessonId = 'lesson-01-pengantar' }) => {
   const [chatInput, setChatInput] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -40,7 +42,7 @@ export const SocraticPanel: React.FC<SocraticPanelProps> = ({ userId }) => {
       const result = await askSocraticTutor(
         userId,
         message,
-        'Materi: Aljabar dasar, persamaan kuadrat, fungsi kuadrat f(x) = ax² + bx + c, diskriminan, titik puncak parabola.'
+        lessonId
       );
       setAiResponse(result.text);
       setTokenInfo({ total: result.tokens, cached: result.cached, latency: result.latencyMs });

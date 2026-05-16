@@ -115,7 +115,7 @@ export default function App() {
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-4 space-y-6">
-          <SocraticPanel userId={user.id} />
+          <SocraticPanel userId={user.id} lessonId={activeLesson.id} />
           <StreakWidget userId={user.id} />
           <div className="soft-ui-card p-5">
             <ModuleSelector currentModuleSlug={activeModuleSlug} completedModules={completedModules} onSelectModule={setActiveModuleSlug} />
