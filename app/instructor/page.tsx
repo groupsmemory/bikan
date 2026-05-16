@@ -10,15 +10,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { getInstructorStats, getRecentStudents, getAllItems, addItem, deleteItem } from '@/app/actions/instructor';
+import { getStudentProgressList, getItemPerformanceStats, getCohortAnalytics, StudentProgress, ItemPerformance, CohortAnalytics } from '@/app/actions/instructor-analytics';
 import { useAuth } from '@/src/features/auth/AuthContext';
 
 export default function InstructorDashboard() {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<'overview' | 'items' | 'students'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'items' | 'students' | 'analytics'>('overview');
   const [stats, setStats] = useState({ totalStudents: 0, totalCourses: 0, totalItems: 0, activeLearnersWeek: 0 });
   const [students, setStudents] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
+  const [itemPerformance, setItemPerformance] = useState<ItemPerformance[]>([]);
+  const [cohort, setCohort] = useState<CohortAnalytics | null>(null);
 
   // Form state for adding items
   const [newItem, setNewItem] = useState({
@@ -32,6 +36,9 @@ export default function InstructorDashboard() {
     getInstructorStats(user.id).then(setStats);
     getRecentStudents().then(setStudents);
     getAllItems().then(setItems);
+    getStudentProgressList().then(setStudentProgress);
+    getItemPerformanceStats().then(setItemPerformance);
+    getCohortAnalytics().then(setCohort);
   }, [user]);
 
   if (!user) {
@@ -68,7 +75,7 @@ export default function InstructorDashboard() {
 
         {/* Navigation */}
         <div className="flex gap-2">
-          {(['overview', 'items', 'students'] as const).map(section => (
+          {(['overview', 'analytics', 'items', 'students'] as const).map(section => (
             <button
               key={section}
               onClick={() => setActiveSection(section)}
@@ -78,7 +85,7 @@ export default function InstructorDashboard() {
                   : 'bg-white text-muted-blue/50 hover:bg-muted-blue/5'
               }`}
             >
-              {section === 'overview' ? '📊 Overview' : section === 'items' ? '📝 Bank Soal' : '👥 Siswa'}
+              {section === 'overview' ? '📊 Overview' : section === 'analytics' ? '📈 Analytics' : section === 'items' ? '📝 Bank Soal' : '👥 Siswa'}
             </button>
           ))}
         </div>
@@ -167,22 +174,105 @@ export default function InstructorDashboard() {
         {/* ─── Students Section ─── */}
         {activeSection === 'students' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <h2 className="font-bold">Siswa Terdaftar ({students.length})</h2>
+            <h2 className="font-bold">Siswa & Progress ({studentProgress.length})</h2>
             <div className="space-y-2">
-              {students.map(s => (
+              {studentProgress.map(s => (
                 <div key={s.id} className="soft-ui-card p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold">{s.name}</p>
-                    <p className="text-[10px] text-muted-blue/40">{s.email}</p>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                      s.riskLevel === 'on_track' ? 'bg-muted-green' :
+                      s.riskLevel === 'at_risk' ? 'bg-tactical-orange' : 'bg-tactical-red'
+                    }`} />
+                    <div>
+                      <p className="text-sm font-bold">{s.name}</p>
+                      <p className="text-[10px] text-muted-blue/40">{s.email}</p>
+                    </div>
                   </div>
-                  <span className="text-[9px] text-muted-blue/30 font-mono">
-                    {new Date(s.createdAt).toLocaleDateString('id-ID')}
-                  </span>
+                  <div className="text-right space-y-0.5">
+                    <p className="text-xs font-mono font-bold">θ = {s.theta.toFixed(2)}</p>
+                    <div className="flex items-center gap-2 text-[9px] text-muted-blue/40">
+                      <span>{s.totalResponses} items</span>
+                      <span>{(s.accuracy * 100).toFixed(0)}% akurasi</span>
+                      <span>🔥{s.streakDays}d</span>
+                    </div>
+                  </div>
                 </div>
               ))}
-              {students.length === 0 && (
+              {studentProgress.length === 0 && (
                 <p className="text-sm text-muted-blue/40 text-center py-8">Belum ada siswa terdaftar</p>
               )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ─── Analytics Section ─── */}
+        {activeSection === 'analytics' && cohort && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {/* Cohort Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="Rata-rata θ" value={cohort.averageTheta.toFixed(2)} icon="📐" />
+              <StatCard label="Mastery Rate" value={`${cohort.masteryRate.toFixed(0)}%`} icon="🏆" />
+              <StatCard label="At Risk" value={cohort.atRiskCount} icon="⚠️" />
+              <StatCard label="Aktif 7 Hari" value={`${cohort.activeRate7d.toFixed(0)}%`} icon="📅" />
+            </div>
+
+            {/* Theta Distribution */}
+            <div className="soft-ui-card p-6 space-y-4">
+              <h2 className="font-bold text-sm">Distribusi Kemampuan Siswa (θ)</h2>
+              <div className="space-y-2">
+                {cohort.thetaDistribution.map((bucket) => {
+                  const maxCount = Math.max(...cohort.thetaDistribution.map(b => b.count), 1);
+                  const width = (bucket.count / maxCount) * 100;
+                  return (
+                    <div key={bucket.range} className="flex items-center gap-3">
+                      <span className="text-[9px] text-muted-blue/50 w-40 text-right">{bucket.range}</span>
+                      <div className="flex-1 h-5 bg-muted-blue/5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-tactical-orange/60 rounded-full transition-all"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono font-bold w-8">{bucket.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Item Performance */}
+            <div className="soft-ui-card p-6 space-y-4">
+              <h2 className="font-bold text-sm">Performa Soal ({itemPerformance.length} items)</h2>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {itemPerformance.map(item => (
+                  <div key={item.id} className={`p-3 rounded-xl flex items-center justify-between ${
+                    item.flag === 'poor' ? 'bg-tactical-red/5 border border-tactical-red/20' :
+                    item.flag === 'review' ? 'bg-amber-50 border border-amber-200/50' :
+                    'bg-muted-blue/5'
+                  }`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{item.question}</p>
+                      <div className="flex gap-2 mt-0.5 text-[9px] text-muted-blue/40">
+                        <span>a={item.discrimination.toFixed(1)}</span>
+                        <span>b={item.difficulty.toFixed(1)}</span>
+                        <span>{item.bloomLevel}</span>
+                      </div>
+                    </div>
+                    <div className="text-right ml-3">
+                      <p className="text-xs font-mono font-bold">
+                        {item.timesAdministered > 0 ? `${(item.correctRate * 100).toFixed(0)}%` : '—'}
+                      </p>
+                      <p className="text-[8px] text-muted-blue/30">{item.timesAdministered} attempts</p>
+                    </div>
+                    {item.flag !== 'good' && (
+                      <span className={`ml-2 text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                        item.flag === 'poor' ? 'bg-tactical-red/10 text-tactical-red' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {item.flag === 'poor' ? 'POOR' : 'REVIEW'}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
@@ -192,7 +282,7 @@ export default function InstructorDashboard() {
 }
 
 // ─── Stat Card Component ───
-function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+function StatCard({ label, value, icon }: { label: string; value: number | string; icon: string }) {
   return (
     <div className="soft-ui-card p-5 text-center space-y-1">
       <span className="text-2xl">{icon}</span>
