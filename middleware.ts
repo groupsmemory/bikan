@@ -22,6 +22,9 @@ const PUBLIC_PATHS = ['/landing', '/privacy', '/terms', '/api/webhooks'];
 // Routes that require authentication — redirect to / if no session
 const PROTECTED_PATHS = ['/instructor', '/mentor'];
 
+// Routes that require admin role specifically
+const ADMIN_ONLY_PATHS = ['/dev'];
+
 function getSecret() {
   const secret = process.env.SESSION_SECRET || 'bikan-default-secret-change-in-production-2026';
   return new TextEncoder().encode(secret);
@@ -70,6 +73,13 @@ export async function middleware(request: NextRequest) {
     // Clear invalid cookie
     if (token) response.cookies.delete(SESSION_COOKIE);
     return addSecurityHeaders(response);
+  }
+
+  // ─── Admin-only routes: redirect if not admin ───
+  if (ADMIN_ONLY_PATHS.some(route => pathname.startsWith(route))) {
+    if (!isAuthenticated || payload?.role !== 'admin') {
+      return addSecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
+    }
   }
 
   // ─── Build response ───
