@@ -27,6 +27,7 @@ import { ModuleSelector } from '@/src/features/curriculum/ModuleSelector';
 import { LearnTab } from '@/src/features/learn/LearnTab';
 import { CanvasTab } from '@/src/features/canvas/CanvasTab';
 import { AssessmentTab } from '@/src/features/assessment/AssessmentTab';
+import { CATSession } from '@/src/features/assessment/CATSession';
 import { DiagnosticsWorkspace } from '@/src/features/diagnostics';
 
 export default function App() {
@@ -108,7 +109,7 @@ export default function App() {
               {activeTab === 'video' && <LearnTab activeLesson={activeLesson} activeLessonIndex={activeLessonIndex} onSelectLesson={setActiveLessonIndex} />}
               {activeTab === 'canvas' && <CanvasTab config={config} setConfig={setConfig} isDark={isDark} />}
               {activeTab === 'diagnostics' && <DiagnosticsWorkspace onCorrectSolution={() => { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); }} />}
-              {activeTab === 'assessment' && <AssessmentTab userId={user.id} moduleSlug={activeModuleSlug} onReportChange={setReport} />}
+              {activeTab === 'assessment' && <CATSession userId={user.id} moduleSlug={activeModuleSlug} onProgress={setReport} />}
               {activeTab === 'post-live' && <PostLivePanel userId={user.id} />}
               {activeTab === 'pricing' && <PricingPanel userId={user.id} userEmail={user.email} userName={user.name} currentPlan="free" />}
             </motion.div>
