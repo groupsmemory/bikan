@@ -27,6 +27,7 @@ import { ModuleSelector } from '@/src/features/curriculum/ModuleSelector';
 import { LearnTab } from '@/src/features/learn/LearnTab';
 import { CanvasTab } from '@/src/features/canvas/CanvasTab';
 import { AssessmentTab } from '@/src/features/assessment/AssessmentTab';
+import { DiagnosticsWorkspace } from '@/src/features/diagnostics';
 
 export default function App() {
   // ─── State ───
@@ -90,7 +91,7 @@ export default function App() {
 
           {/* Tabs */}
           <div className="soft-ui-card p-2 flex gap-1 bg-white/50 border-white/50">
-            {['video', 'canvas', 'assessment', 'post-live', 'pricing'].map((tab) => (
+            {['video', 'canvas', 'diagnostics', 'assessment', 'post-live', 'pricing'].map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
                   activeTab === tab ? 'bg-white shadow-soft-out text-tactical-orange scale-[1.02]' : 'text-muted-blue/40 hover:text-muted-blue/60'
@@ -106,6 +107,7 @@ export default function App() {
               className="soft-ui-card p-10 min-h-[300px] flex flex-col items-center justify-center text-center space-y-4">
               {activeTab === 'video' && <LearnTab activeLesson={activeLesson} activeLessonIndex={activeLessonIndex} onSelectLesson={setActiveLessonIndex} />}
               {activeTab === 'canvas' && <CanvasTab config={config} setConfig={setConfig} isDark={isDark} />}
+              {activeTab === 'diagnostics' && <DiagnosticsWorkspace onCorrectSolution={() => { if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]); }} />}
               {activeTab === 'assessment' && <AssessmentTab userId={user.id} moduleSlug={activeModuleSlug} onReportChange={setReport} />}
               {activeTab === 'post-live' && <PostLivePanel userId={user.id} />}
               {activeTab === 'pricing' && <PricingPanel userId={user.id} userEmail={user.email} userName={user.name} currentPlan="free" />}
