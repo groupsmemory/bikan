@@ -283,5 +283,5 @@ function isApiRequest(url) {
 }
 
 function isMediaContent(url) {
-  return url.pathname.startsWith('/media/') || url.pathname.startsWith('/content/') || /\.(mp4|webm|m3u8)$/.test(url.pathname);
+  return url.pathname.startsWith('/media/') || url.pathname.startsWith('/content/') || url.pathname.startsWith('/videos/') || /\.(mp4|webm|m3u8|ts)$/.test(url.pathname);
 }

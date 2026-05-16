@@ -28,6 +28,8 @@ import { LearnTab } from '@/src/features/learn/LearnTab';
 import { CanvasTab } from '@/src/features/canvas/CanvasTab';
 import { AssessmentTab } from '@/src/features/assessment/AssessmentTab';
 import { CATSession } from '@/src/features/assessment/CATSession';
+import { OfflineIndicator } from '@/src/features/layout/OfflineIndicator';
+import { useOfflineSync } from '@/src/hooks/use-offline-sync';
 import { DiagnosticsWorkspace } from '@/src/features/diagnostics';
 
 export default function App() {
@@ -46,6 +48,11 @@ export default function App() {
   const { user, isLoading, handleLogout } = useAuth();
 
   const activeLesson = MODULE_1.lessons[activeLessonIndex];
+
+  // ─── Offline Sync (requires userId) ───
+  const { submitAction, triggerSync, queueStats, isSyncing, isOnline: syncOnline } = useOfflineSync(
+    user?.id ?? 'anonymous'
+  );
 
   useEffect(() => {
     if (shouldShowOnboarding()) setShowOnboarding(true);
@@ -155,6 +162,14 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Offline Queue Indicator */}
+      <OfflineIndicator
+        isOnline={isOnline}
+        queueStats={queueStats}
+        isSyncing={isSyncing}
+        onSync={triggerSync}
+      />
     </div>
   );
 }
