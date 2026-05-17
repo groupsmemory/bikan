@@ -25,6 +25,12 @@ const PROTECTED_PATHS = ['/instructor', '/mentor'];
 // Routes that require admin role specifically
 const ADMIN_ONLY_PATHS = ['/dev'];
 
+// Routes that require specific roles (role-based access control)
+const ROLE_RESTRICTED_PATHS: Record<string, string[]> = {
+  '/instructor': ['instructor', 'admin'],
+  '/mentor': ['instructor', 'admin'],
+};
+
 function getSecret() {
   const secret = process.env.SESSION_SECRET || 'bikan-default-secret-change-in-production-2026';
   return new TextEncoder().encode(secret);
@@ -73,6 +79,17 @@ export async function middleware(request: NextRequest) {
     // Clear invalid cookie
     if (token) response.cookies.delete(SESSION_COOKIE);
     return addSecurityHeaders(response);
+  }
+
+  // ─── Role-based access control ───
+  for (const [path, allowedRoles] of Object.entries(ROLE_RESTRICTED_PATHS)) {
+    if (pathname.startsWith(path) && isAuthenticated) {
+      const userRole = payload?.role as string;
+      if (!allowedRoles.includes(userRole)) {
+        // User is authenticated but wrong role → redirect to home
+        return addSecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
+      }
+    }
   }
 
   // ─── Admin-only routes: redirect if not admin ───
