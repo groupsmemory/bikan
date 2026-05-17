@@ -6,6 +6,7 @@
  */
 
 import type { Metadata, Viewport } from 'next';
+import '@/lib/env'; // Environment validation — crash early if vars missing
 import '@/src/index.css';
 
 export const metadata: Metadata = {
