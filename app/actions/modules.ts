@@ -7,7 +7,7 @@
  */
 
 import { db } from '@/lib/db/client';
-import { modules, itemBank } from '@/lib/db/schema';
+import { modules, itemBank, users } from '@/lib/db/schema';
 import { eq, asc, count } from 'drizzle-orm';
 
 export interface ModuleData {
@@ -82,7 +82,10 @@ export interface GatekeeperResult {
 
 /**
  * Check if a user has mastery access to a specific module.
- * Returns LOCKED if prerequisite module's completion < 90%.
+ * Uses DUAL criteria:
+ * 1. Theta-based mastery (IRT score mapped to percentage)
+ * 2. Lesson completion progress
+ * Returns LOCKED if either criterion not met.
  */
 export async function checkModuleAccess(userId: string, moduleSlug: string): Promise<GatekeeperResult> {
   try {
@@ -111,8 +114,18 @@ export async function checkModuleAccess(userId: string, moduleSlug: string): Pro
       return { status: 'UNLOCKED', currentMastery: 100, requiredMastery: targetModule.masteryThreshold };
     }
 
-    // Check user's completion on prerequisite module's lessons
-    // Query: average completion_percentage for all lessons in the prerequisite module's course
+    // ─── Criterion 1: Theta-based mastery ───
+    // Get user's theta score from users table
+    const [userRecord] = await db.select({ thetaScore: users.thetaScore })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const theta = userRecord?.thetaScore ? parseFloat(userRecord.thetaScore) : 0;
+    // Map theta [-3.5, 3.5] to mastery [0, 100]
+    const thetaMastery = Math.min(Math.max(((theta + 3.5) / 7) * 100, 0), 100);
+
+    // ─── Criterion 2: Lesson completion progress ───
     const progressRecords = await db.select({
       avgCompletion: sql<number>`COALESCE(AVG(${learningProgress.completionPercentage}), 0)`,
     })
@@ -120,11 +133,14 @@ export async function checkModuleAccess(userId: string, moduleSlug: string): Pro
       .where(
         and(
           eq(learningProgress.userId, userId),
-          eq(learningProgress.courseId, prereqModule.id) // Using module ID as course reference
+          eq(learningProgress.courseId, prereqModule.id)
         )
       );
 
-    const currentMastery = progressRecords[0]?.avgCompletion ?? 0;
+    const completionMastery = progressRecords[0]?.avgCompletion ?? 0;
+
+    // Use the HIGHER of the two criteria (theta is more reliable for assessment)
+    const currentMastery = Math.max(thetaMastery, completionMastery);
     const requiredMastery = targetModule.masteryThreshold;
 
     if (currentMastery < requiredMastery) {

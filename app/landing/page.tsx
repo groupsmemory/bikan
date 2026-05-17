@@ -10,17 +10,53 @@ import Link from 'next/link';
 export const metadata = {
   title: 'BIKAN - Platform Pembelajaran Matematika Adaptif | Bimbingan Andalan',
   description: 'Belajar matematika dengan AI Socratic Assistant dan assessment adaptif berbasis IRT. Video micro-learning, grafik interaktif, dan sertifikat digital. Mulai gratis!',
-  keywords: 'belajar matematika, LMS Indonesia, fungsi kuadrat, aljabar, AI tutor, bimbel online',
+  keywords: 'belajar matematika, LMS Indonesia, fungsi kuadrat, aljabar, AI tutor, bimbel online, koperasi edtech, UTBK matematika',
   openGraph: {
-    title: 'BIKAN - Bimbingan Andalan',
-    description: 'Platform pembelajaran matematika adaptif dengan AI',
+    title: 'BIKAN - Bimbingan Andalan | Matematika Adaptif',
+    description: 'Platform pembelajaran matematika adaptif dengan AI Socratic Assistant. Gratis untuk siswa Indonesia.',
     type: 'website',
+    locale: 'id_ID',
+    siteName: 'BIKAN LMS',
+    url: 'https://bikan.id',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BIKAN - Belajar Matematika Adaptif',
+    description: 'AI Socratic + IRT Adaptive Testing. Gratis.',
+  },
+  alternates: {
+    canonical: 'https://bikan.id/landing',
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
 export default function LandingPage() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'EducationalOrganization',
+    name: 'BIKAN LMS',
+    description: 'Platform pembelajaran matematika adaptif berbasis IRT dengan AI Socratic Assistant',
+    url: 'https://bikan.id',
+    sameAs: ['https://github.com/groupsmemory/bikan'],
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'IDR',
+      description: 'Free Tier — akses penuh modul aljabar dasar',
+    },
+    educationalCredentialAwarded: 'Sertifikat Kompetensi Aljabar BIKAN',
+  };
+
   return (
     <div className="min-h-screen bg-neutral-base">
+      {/* JSON-LD Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Hero Section */}
       <header className="relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 py-20 text-center space-y-8">
