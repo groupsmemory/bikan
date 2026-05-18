@@ -114,8 +114,8 @@ streaming data.^1
 
 Untuk memenuhi kebutuhan platform LMS profesional berskala masif, desain database
 diimplementasikan menggunakan PostgreSQL pada platform NeonDB dengan membagi entitas
-ke dalam dua skema logis terpisah: lms_core untuk seluruh operasional akademik dan
-lms_analytics untuk menampung log pemrosesan kecerdasan buatan.^6 Pemisahan skema ini
+ke dalam dua skema logis terpisah: ims_core untuk seluruh operasional akademik dan
+ims_analytics untuk menampung log pemrosesan kecerdasan buatan.^6 Pemisahan skema ini
 membentuk batasan keamanan yang jelas serta menyederhanakan pengelolaan hak akses
 terperinci ( _fine-grained security_ ) menggunakan kontrol peran database.^6
 
@@ -124,34 +124,34 @@ terperinci ( _fine-grained security_ ) menggunakan kontrol peran database.^6
 ```
 Nama Tabel Ruang Lingkup Skema Deskripsi Fungsional
 Keamanan dan Skalabilitas
-users lms_core Menyimpan kredensial
+users ims_core Menyimpan kredensial
 otentikasi, enkripsi kata sandi,
 dan penentuan peran
 pengguna.^8
-courses lms_core Representasi entitas mata
+courses ims_core Representasi entitas mata
 kuliah atau pelatihan yang
 dikelola oleh instruktur.^8
-enrollments lms_core Tabel relasi banyak-ke-banyak
+enrollments ims_core Tabel relasi banyak-ke-banyak
 yang memetakan pendaftaran
 siswa ke mata kuliah tertentu.^8
-resources lms_core Menyimpan metadata materi
+resources ims_core Menyimpan metadata materi
 ```
 
 ```
 pembelajaran baik berupa teks,
 berkas eksternal, maupun
 tautan URL.^8
-assessments lms_core Mengelola modul kuis, ujian,
+assessments ims_core Mengelola modul kuis, ujian,
 dan penugasan akademik
 berkala.^8
-grades lms_core Mencatat hasil evaluasi ujian,
+grades ims_core Mencatat hasil evaluasi ujian,
 perolehan skor numerik, dan
 umpan balik instruktur.^8
-learning_progress lms_core Melacak persentase
+learning_progress ims_core Melacak persentase
 penyelesaian materi siswa
 secara riil di tingkat unit
 materi.^8
-ai_interaction_logs lms_analytics Menyimpan rekam jejak utilitas
+ai_interaction_logs ims_analytics Menyimpan rekam jejak utilitas
 asisten pintar, volume token,
 dan performa latensi.
 ```
@@ -163,25 +163,25 @@ dan performa latensi.
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public; [9]
 -- Pembuatan Wadah Skema Logis Terisolasi
-CREATE SCHEMA lms_core; [6]
-CREATE SCHEMA lms_analytics; [6]
+CREATE SCHEMA ims_core; [6]
+CREATE SCHEMA ims_analytics; [6]
 -- Definisi Tipe Data Enumerasi Terstruktur
-CREATE TYPE lms_core.user_role AS ENUM ('admin', 'instructor', 'student'); [10]
-CREATE TYPE lms_core.completion_status AS ENUM ('active', 'completed', 'dropped'); [8]
+CREATE TYPE ims_core.user_role AS ENUM ('admin', 'instructor', 'student'); [10]
+CREATE TYPE ims_core.completion_status AS ENUM ('active', 'completed', 'dropped'); [8]
 -- 1. TABEL PENGGUNA (USERS)
-CREATE TABLE lms_core.users (
+CREATE TABLE ims_core.users (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 name VARCHAR(255) NOT NULL,
 email VARCHAR(255) UNIQUE NOT NULL,
 password_hash VARCHAR(255) NOT NULL,
-role lms_core.user_role NOT NULL DEFAULT 'student'[8, 10]
+role ims_core.user_role NOT NULL DEFAULT 'student'[8, 10]
 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
 
 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 -- 2. TABEL KURSUS (COURSES)
-CREATE TABLE lms_core.courses (
+CREATE TABLE ims_core.courses (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 title VARCHAR(255) NOT NULL,
 description TEXT,
@@ -189,24 +189,24 @@ instructor_id UUID NOT NULL,
 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 CONSTRAINT fk_courses_instructor FOREIGN KEY (instructor_id)
-REFERENCES lms_core.users(id) ON DELETE RESTRICT [8]
+REFERENCES ims_core.users(id) ON DELETE RESTRICT [8]
 );
 -- 3. TABEL PENDAFTARAN (ENROLLMENTS)
-CREATE TABLE lms_core.enrollments (
+CREATE TABLE ims_core.enrollments (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 course_id UUID NOT NULL,
 student_id UUID NOT NULL,
 enrollment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT
 NULL[8]
-status lms_core.completion_status NOT NULL DEFAULT 'active'[8]
+status ims_core.completion_status NOT NULL DEFAULT 'active'[8]
 CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES
-lms_core.courses(id) ON DELETE CASCADE[10]
+ims_core.courses(id) ON DELETE CASCADE[10]
 CONSTRAINT fk_enrollments_student FOREIGN KEY (student_id) REFERENCES
-lms_core.users(id) ON DELETE CASCADE[10]
+ims_core.users(id) ON DELETE CASCADE[10]
 CONSTRAINT unique_student_course_enrollment UNIQUE (student_id, course_id)
 );
 -- 4. TABEL MATERI PEMBELAJARAN (RESOURCES)
-CREATE TABLE lms_core.resources (
+CREATE TABLE ims_core.resources (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 course_id UUID NOT NULL,
 title VARCHAR(255) NOT NULL,
@@ -214,12 +214,12 @@ resource_type VARCHAR(50) NOT NULL, -- e.g., 'video', 'pdf', 'link'
 url TEXT NOT NULL[8]
 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 CONSTRAINT fk_resources_course FOREIGN KEY (course_id) REFERENCES
-lms_core.courses(id) ON DELETE CASCADE [8]
+ims_core.courses(id) ON DELETE CASCADE [8]
 );
 -- 5. TABEL EVALUASI UJIAN (ASSESSMENTS)
 
 
-CREATE TABLE lms_core.assessments (
+CREATE TABLE ims_core.assessments (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 course_id UUID NOT NULL,
 title VARCHAR(255) NOT NULL,
@@ -228,10 +228,10 @@ due_date TIMESTAMP WITH TIME ZONE[8]
 max_score INT NOT NULL DEFAULT 100[8]
 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 CONSTRAINT fk_assessments_course FOREIGN KEY (course_id) REFERENCES
-lms_core.courses(id) ON DELETE CASCADE [8]
+ims_core.courses(id) ON DELETE CASCADE [8]
 );
 -- 6. TABEL NILAI EVALUASI (GRADES)
-CREATE TABLE lms_core.grades (
+CREATE TABLE ims_core.grades (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 assessment_id UUID NOT NULL,
 student_id UUID NOT NULL,
@@ -239,12 +239,12 @@ score INT NOT NULL[8]
 feedback TEXT[8]
 graded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 CONSTRAINT fk_grades_assessment FOREIGN KEY (assessment_id) REFERENCES
-lms_core.assessments(id) ON DELETE CASCADE[8]
+ims_core.assessments(id) ON DELETE CASCADE[8]
 CONSTRAINT fk_grades_student FOREIGN KEY (student_id) REFERENCES
-lms_core.users(id) ON DELETE CASCADE [8]
+ims_core.users(id) ON DELETE CASCADE [8]
 );
 -- 7. TABEL JEJAK PROGRES (LEARNING PROGRESS)
-CREATE TABLE lms_core.learning_progress (
+CREATE TABLE ims_core.learning_progress (
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 user_id UUID NOT NULL,
 course_id UUID NOT NULL,
@@ -252,10 +252,10 @@ lesson_id UUID NOT NULL[8]
 completion_percentage INT NOT NULL DEFAULT 0[8]
 last_accessed TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT
 NULL[8]
-CONSTRAINT fk_progress_user FOREIGN KEY (user_id) REFERENCES lms_core.users(id)
+CONSTRAINT fk_progress_user FOREIGN KEY (user_id) REFERENCES ims_core.users(id)
 ON DELETE CASCADE[8]
 CONSTRAINT fk_progress_course FOREIGN KEY (course_id) REFERENCES
-lms_core.courses(id) ON DELETE CASCADE[8]
+ims_core.courses(id) ON DELETE CASCADE[8]
 CONSTRAINT check_percentage_bounds CHECK (completion_percentage >= 0 AND
 completion_percentage <= 100)
 );
@@ -263,7 +263,7 @@ completion_percentage <= 100)
 
 ##### -- 8. TABEL ANALITIK INTERAKSI AI PARTISI (AI INTERACTION LOGS)
 
-CREATE TABLE lms_analytics.ai_interaction_logs (
+CREATE TABLE ims_analytics.ai_interaction_logs (
 id UUID DEFAULT uuid_generate_v4(),
 user_id UUID NOT NULL,
 prompt_tokens INT NOT NULL,
@@ -276,15 +276,15 @@ created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at); [13]
 -- Strategi Pengindeksan Berdasarkan Kardinalitas Kolom
-CREATE INDEX idx_users_email ON lms_core.users(email); [9]
-CREATE INDEX idx_enrollments_student_course ON lms_core.enrollments(student_id,
+CREATE INDEX idx_users_email ON ims_core.users(email); [9]
+CREATE INDEX idx_enrollments_student_course ON ims_core.enrollments(student_id,
 course_id); [8]
-CREATE INDEX idx_learning_progress_composite ON lms_core.learning_progress(user_id,
+CREATE INDEX idx_learning_progress_composite ON ims_core.learning_progress(user_id,
 course_id, lesson_id);
-CREATE INDEX idx_grades_assessment_student ON lms_core.grades(assessment_id,
+CREATE INDEX idx_grades_assessment_student ON ims_core.grades(assessment_id,
 student_id); [8]
 -- Strategi Indeks Parsial Demi Efisiensi Operasi Penulisan
-CREATE INDEX idx_enrollments_active_status ON lms_core.enrollments (created_at)
+CREATE INDEX idx_enrollments_active_status ON ims_core.enrollments (created_at)
 WHERE status = 'active'; [14]
 
 ## Panduan Optimasi Kueri dan Arsitektur Penyimpanan
@@ -328,11 +328,11 @@ pemindaian data kueri dibatasi hanya pada partisi bulan berjalan tanpa perlu men
 ratusan juta baris data histori lama.^13
 SQL
 -- Deklarasi Pembuatan Sub-Tabel Partisi Bulanan Eksplisit untuk Kuartal Dua 2026
-CREATE TABLE lms_analytics.ai_logs_2026_m05 PARTITION OF
-lms_analytics.ai_interaction_logs
+CREATE TABLE ims_analytics.ai_logs_2026_m05 PARTITION OF
+ims_analytics.ai_interaction_logs
 FOR VALUES FROM ('2026-05-01 00:00:00+00') TO ('2026-06-01 00:00:00+00');
-CREATE TABLE lms_analytics.ai_logs_2026_m06 PARTITION OF
-lms_analytics.ai_interaction_logs
+CREATE TABLE ims_analytics.ai_logs_2026_m06 PARTITION OF
+ims_analytics.ai_interaction_logs
 FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
 Operasi penghapusan data lama ( _archiving_ ) dapat dieksekusi secara instan dengan
 memisahkan dan menghapus sub-tabel partisi menggunakan perintah DROP TABLE alih-alih
@@ -377,9 +377,9 @@ SQL
 -- Pembersihan data sampah tanpa penguncian tabel eksklusif
 
 
-VACUUM lms_core.learning_progress; [9]
+VACUUM ims_core.learning_progress; [9]
 -- Membangun ulang struktur indeks yang mengalami fragmentasi internal parah
-REINDEX TABLE lms_core.enrollments; [9]
+REINDEX TABLE ims_core.enrollments; [9]
 
 ### Tuning Konfigurasi Core Engine PostgreSQL untuk Lonjakan
 
@@ -617,10 +617,10 @@ SQL
 -- Membuat grup peran pengajar
 CREATE ROLE lms_instructor_group NOSUPERUSER NOCREATEDB
 NOCREATEROLE INHERIT; [7]
--- Memberikan hak akses penggunaan skema akademik lms_core
-GRANT USAGE ON SCHEMA lms_core TO lms_instructor_group; [6]
+-- Memberikan hak akses penggunaan skema akademik ims_core
+GRANT USAGE ON SCHEMA ims_core TO lms_instructor_group; [6]
 -- Memberikan hak manipulasi data materi kurikulum secara eksklusif kepada instruktur
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA lms_core
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ims_core
 TO lms_instructor_group; [6]
 ● Langkah 2: Lakukan pemantauan efisiensi pemanfaatan teknologi implicit caching
 kecerdasan buatan secara berkala untuk mengaudit pengeluaran anggaran token 11 :
@@ -630,7 +630,7 @@ sum(prompt_tokens) AS total_token_masuk,
 sum(cached_tokens) AS total_token_berhasil_cache[11]
 (sum(cached_tokens)::float / nullif(sum(prompt_tokens), 0)) * 100 AS
 rasio_efisiensi_cache_persen
-FROM lms_analytics.ai_interaction_logs
+FROM ims_analytics.ai_interaction_logs
 GROUP BY workflow_tag; [12]
 ● Langkah 3: Evaluasi kondisi tabel operasional untuk mengidentifikasi adanya indikasi
 degradasi kecepatan baca akibat ketiadaan indeks relasional 9 :
@@ -640,7 +640,7 @@ CASE WHEN seq_scan > COALESCE(idx_scan, 0) THEN 'REKOMENDASI:
 Evaluasi Pemasangan Indeks Baru'
 ELSE 'STATUS: Kinerja Optimal' END AS rekomendasi_tindakan
 FROM pg_stat_user_tables
-WHERE schemaname = 'lms_core'
+WHERE schemaname = 'ims_core'
 ORDER BY (seq_scan - COALESCE(idx_scan, 0)) DESC LIMIT 5; [9]
 ```
 ### 3. Panduan Siklus Alur Sistem Bagi Pengguna Akhir (User Guide)
@@ -651,7 +651,7 @@ ORDER BY (seq_scan - COALESCE(idx_scan, 0)) DESC LIMIT 5; [9]
 mengunjungi halaman antarmuka pendaftaran di rute URL /register.^4 Formulir pendaftaran
 meminta input nama, alamat email aktif, dan kata sandi.^8 Setelah pengguna menekan
 tombol submisi, sistem belakang mengamankan kata sandi menggunakan algoritma
-hashing, mencatat entitas baru ke tabel lms_core.users, lalu mengarahkan pengguna
+hashing, mencatat entitas baru ke tabel ims_core.users, lalu mengarahkan pengguna
 secara otomatis ke halaman /login.^8
 ● Langkah 2: Proses Otentikasi dan Pengalihan Ruang Kerja Berbasis Peran (Role
 Redirection) Pengguna memasukkan kredensial email pada halaman /login.^4 Setelah
@@ -665,7 +665,7 @@ dengan peran siswa ( student ), layar dialihkan menuju rute ruang belajar utama 
 salah satu judul pelatihan aktif pada dasbor belajar mereka.^10 Pemilihan modul memicu
 pemuatan komponen utama components/features/course-player untuk menyajikan materi
 video beserta berkas referensi pendukung yang bersumber dari tabel
-lms_core.resources.^8 Jika siswa mengalami kendala pemahaman materi, mereka dapat
+ims_core.resources.^8 Jika siswa mengalami kendala pemahaman materi, mereka dapat
 berinteraksi langsung melalui panel asisten pintar components/features/ai-tutor di sisi
 kanan layar.^8 Pertanyaan siswa diproses secara aman di sisi server melalui mekanisme
 Server Action , dan jawaban dikembalikan dalam bentuk teks mengalir ( streaming text
