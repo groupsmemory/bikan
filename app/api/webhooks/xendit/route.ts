@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/client';
 import { subscriptions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { safePaymentUpdate } from '@/lib/db/safe-transaction';
 
 const WEBHOOK_TOKEN = process.env.XENDIT_WEBHOOK_TOKEN;
 
@@ -50,17 +51,16 @@ export async function POST(request: NextRequest) {
       ourStatus = 'expired';
     }
 
-    // ─── Update subscription in database ───
-    const updateData: any = { status: ourStatus };
-    if (ourStatus === 'paid') {
-      updateData.paidAt = new Date();
+    // ─── Update subscription with SYNCHRONOUS COMMIT (financial data) ───
+    const paidAt = ourStatus === 'paid' ? new Date() : undefined;
+    const updateResult = await safePaymentUpdate(invoiceId, ourStatus, paidAt);
+
+    if (!updateResult.success) {
+      console.error(`[Webhook] Safe update failed: ${updateResult.error}`);
+      return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
     }
 
-    await db.update(subscriptions)
-      .set(updateData)
-      .where(eq(subscriptions.xenditInvoiceId, invoiceId));
-
-    console.log(`[Webhook] Subscription ${invoiceId} updated to: ${ourStatus}`);
+    console.log(`[Webhook] Subscription ${invoiceId} updated to: ${ourStatus} (sync commit)`);
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
